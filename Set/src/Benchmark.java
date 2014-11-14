@@ -2,7 +2,7 @@
  * @author Pascal Felber
  * @since 0.1
  */
-package org.deuce.benchmark.intset;
+
 
 public interface Benchmark {
 
