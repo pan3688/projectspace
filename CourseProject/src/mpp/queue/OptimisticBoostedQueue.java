@@ -57,7 +57,7 @@ public class OptimisticBoostedQueue implements IntQueue {
 				lock.lock();
 				
 				t.isWriter = true;
-				
+				//add empty check
 				myNode = head.next;
 				head.next = myNode.next;
 				
