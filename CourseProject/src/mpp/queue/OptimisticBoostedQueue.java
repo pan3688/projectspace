@@ -59,7 +59,6 @@ public class OptimisticBoostedQueue implements IntQueue {
 				t.isWriter = true;
 				//add empty check
 				//if queue is empty
-				//just a comment
 				myNode = head.next;
 				head.next = myNode.next;
 				
