@@ -59,8 +59,6 @@ public class OptimisticBoostedQueue implements IntQueue {
 				t.isWriter = true;
 				//add empty check
 				//if queue is empty
-				myNode = head.next;
-				head.next = myNode.next;
 				
 				int size = t.localadds.size();
 				for(int i = 0;i<size;i++){
@@ -69,6 +67,8 @@ public class OptimisticBoostedQueue implements IntQueue {
 				}
 				
 			}
+			myNode = head.next;
+			head.next = myNode.next;
 		}catch(Exception e){
 			throw AbortedException.abortedException;
 		}
