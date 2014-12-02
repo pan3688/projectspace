@@ -8,7 +8,7 @@ public interface IntQueue {
 	
 	public int remove() throws AbortedException;
 	
-	public int element(int value) throws AbortedException;
+	public int element() throws AbortedException;
 	
 	public void commit() throws AbortedException;
 	

@@ -34,7 +34,7 @@ public class OptimisticBoostedQueue implements IntQueue {
 		
 		try{
 			if(t.isWriter){
-				tail.next = tail;
+				tail.next = mynode;
 				tail = mynode;
 			}else{
 				t.localadds.add(mynode);
@@ -76,7 +76,7 @@ public class OptimisticBoostedQueue implements IntQueue {
 		return myNode.item;
 	}
 	@Override
-	public int element(int value) throws AbortedException {
+	public int element() throws AbortedException {
 		return head.next.item;
 	}
 
@@ -93,7 +93,7 @@ public class OptimisticBoostedQueue implements IntQueue {
 				
 				int size = t.localadds.size();
 				for(int i = 0;i<size;i++){
-					tail.next = tail;
+					tail.next = (OBNode)t.localadds.get(i);
 					tail = (OBNode)t.localadds.get(i);
 				}
 				
@@ -120,7 +120,7 @@ public class OptimisticBoostedQueue implements IntQueue {
 	public boolean nonTransactionalEnqueue(int value) {
 		OBNode myNode = new OBNode(value);
 		
-		tail.next = tail;
+		tail.next = myNode;
 		tail = myNode;
 		
 		return true;
