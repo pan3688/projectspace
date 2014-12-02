@@ -37,7 +37,13 @@ public class OptimisticBoostedQueue implements IntQueue {
 				tail.next = mynode;
 				tail = mynode;
 			}else{
-				t.localadds.add(mynode);
+				if(t.localadds.size() < 1)
+					t.localadds.add(mynode);
+				else{
+					int size = t.localadds.size();
+					((OBNode)t.localadds.get(size-1)).next = mynode;
+					t.localadds.add(mynode);
+				}
 			}
 			return true;
 		}catch(Exception e){
@@ -61,10 +67,15 @@ public class OptimisticBoostedQueue implements IntQueue {
 				//if queue is empty
 				
 				int size = t.localadds.size();
-				for(int i = 0;i<size;i++){
+				/*for(int i = 0;i<size;i++){
 					tail.next = tail;
 					tail = (OBNode)t.localadds.get(i);
-				}
+				}*/
+				OBNode localHead = (OBNode)t.localadds.get(0);
+				OBNode localTail = (OBNode)t.localadds.get(size - 1);
+				
+				tail.next = localHead;
+				tail = localTail;
 				
 			}
 			myNode = head.next;
@@ -89,13 +100,28 @@ public class OptimisticBoostedQueue implements IntQueue {
 				t.isWriter = false;
 				lock.unlock();
 			}else if(!t.localadds.isEmpty()){
-				lock.lock();
+				/*lock.lock();
 				
 				int size = t.localadds.size();
 				for(int i = 0;i<size;i++){
 					tail.next = (OBNode)t.localadds.get(i);
 					tail = (OBNode)t.localadds.get(i);
 				}
+				
+				lock.unlock();*/
+				
+				int size = t.localadds.size();
+				
+				OBNode localHead = (OBNode)t.localadds.get(0);
+				OBNode localTail = (OBNode)t.localadds.get(size - 1);
+				/*for(int i=0;i<size-1;i++){
+					((OBNode)t.localadds.get(i)).next = (OBNode)t.localadds.get(i+1);
+				}*/
+				lock.lock();
+				
+				tail.next = localHead;
+				
+				tail = localTail;
 				
 				lock.unlock();
 			}
