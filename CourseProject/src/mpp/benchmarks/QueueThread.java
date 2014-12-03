@@ -43,7 +43,6 @@ public class QueueThread extends BenchmarkThread {
 	}
 	
 	protected void step(int phase) {
-		
 		for(int c = 0; c < m_ops; c++)
 			executionItems[c] = m_random.nextInt(m_range);
 		boolean flag = true, oldm_write = m_write;

@@ -63,20 +63,18 @@ public class OptimisticBoostedQueue implements IntQueue {
 				lock.lock();
 				
 				t.isWriter = true;
-				//add empty check
-				//if queue is empty
 				
 				int size = t.localadds.size();
 				/*for(int i = 0;i<size;i++){
 					tail.next = tail;
 					tail = (OBNode)t.localadds.get(i);
 				}*/
-				OBNode localHead = t.localadds.get(0);
-				OBNode localTail = t.localadds.get(size - 1);
-				
-				tail.next = localHead;
-				tail = localTail;
-				
+				if(size > 0){
+					OBNode localHead = t.localadds.get(0);
+					OBNode localTail = t.localadds.get(size - 1);
+					tail.next = localHead;
+					tail = localTail;
+				}
 			}
 			myNode = head.next;
 			head.next = myNode.next;
@@ -100,15 +98,6 @@ public class OptimisticBoostedQueue implements IntQueue {
 				t.isWriter = false;
 				lock.unlock();
 			}else if(!t.localadds.isEmpty()){
-				/*lock.lock();
-				
-				int size = t.localadds.size();
-				for(int i = 0;i<size;i++){
-					tail.next = (OBNode)t.localadds.get(i);
-					tail = (OBNode)t.localadds.get(i);
-				}
-				
-				lock.unlock();*/
 				
 				int size = t.localadds.size();
 				
