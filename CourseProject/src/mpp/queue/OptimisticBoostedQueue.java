@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import mpp.benchmarks.OTBThread;
+import mpp.benchmarks.QueueThread;
 import mpp.exception.AbortedException;
 
 public class OptimisticBoostedQueue implements IntQueue {
@@ -23,14 +23,14 @@ public class OptimisticBoostedQueue implements IntQueue {
 //			this.marked = false;
 		}
 	}
-	OBNode head = new OBNode(Integer.MIN_VALUE);
+	OBNode head = new OBNode(-1);
 	OBNode tail = head;
 	
 	@Override
 	public boolean add(int value) throws AbortedException {
 		OBNode mynode = new OBNode(value);
 		
-		OTBThread t = ((OTBThread)Thread.currentThread());
+		QueueThread t = ((QueueThread)Thread.currentThread());
 		
 		try{
 			if(t.isWriter){
@@ -41,7 +41,7 @@ public class OptimisticBoostedQueue implements IntQueue {
 					t.localadds.add(mynode);
 				else{
 					int size = t.localadds.size();
-					((OBNode)t.localadds.get(size-1)).next = mynode;
+					t.localadds.get(size-1).next = mynode;
 					t.localadds.add(mynode);
 				}
 			}
@@ -57,7 +57,7 @@ public class OptimisticBoostedQueue implements IntQueue {
 		OBNode myNode = null;
 		
 		try{
-			OTBThread t = (OTBThread)Thread.currentThread();
+			QueueThread t = (QueueThread)Thread.currentThread();
 			
 			if(!t.isWriter){
 				lock.lock();
@@ -71,8 +71,8 @@ public class OptimisticBoostedQueue implements IntQueue {
 					tail.next = tail;
 					tail = (OBNode)t.localadds.get(i);
 				}*/
-				OBNode localHead = (OBNode)t.localadds.get(0);
-				OBNode localTail = (OBNode)t.localadds.get(size - 1);
+				OBNode localHead = t.localadds.get(0);
+				OBNode localTail = t.localadds.get(size - 1);
 				
 				tail.next = localHead;
 				tail = localTail;
@@ -93,7 +93,7 @@ public class OptimisticBoostedQueue implements IntQueue {
 
 	@Override
 	public void commit() throws AbortedException {
-		OTBThread t = (OTBThread)Thread.currentThread();
+		QueueThread t = (QueueThread)Thread.currentThread();
 		
 		try{
 			if(t.isWriter){
@@ -112,8 +112,8 @@ public class OptimisticBoostedQueue implements IntQueue {
 				
 				int size = t.localadds.size();
 				
-				OBNode localHead = (OBNode)t.localadds.get(0);
-				OBNode localTail = (OBNode)t.localadds.get(size - 1);
+				OBNode localHead = t.localadds.get(0);
+				OBNode localTail = t.localadds.get(size - 1);
 				/*for(int i=0;i<size-1;i++){
 					((OBNode)t.localadds.get(i)).next = (OBNode)t.localadds.get(i+1);
 				}*/
@@ -133,7 +133,7 @@ public class OptimisticBoostedQueue implements IntQueue {
 
 	@Override
 	public void abort() {
-		OTBThread t = (OTBThread)Thread.currentThread();
+		QueueThread t = (QueueThread)Thread.currentThread();
 		t.localadds.clear();
 		
 		if(t.isWriter){
