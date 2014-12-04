@@ -25,21 +25,24 @@ public class OptimisticBoostedStack implements IntStack {
 		
 		try{
 			StackThread t = ((StackThread) Thread.currentThread());
-			if(t.iswriter){
-				lock.unlock();
-			}
-			
-			OBNode prevNode;
-			int last = t.localAdds.size()-1;
-			
-			if(last < 0 )
-				prevNode = null;
-			else
-				prevNode = t.localAdds.get(last);
 			
 			OBNode node = new OBNode(value);
-			node.next = prevNode;
-			t.localAdds.add(node);
+			
+			if(t.iswriter){
+				node.next = top;
+				top = node;
+			}
+			else{
+				OBNode prevNode;
+				int last = t.localAdds.size()-1;
+				if(last < 0 )
+					prevNode = null;
+				else
+					prevNode = t.localAdds.get(last);
+				node.next = prevNode;
+				t.localAdds.add(node);
+			}
+			
 			return true;
 		}
 		catch(Exception e){
@@ -71,6 +74,8 @@ public class OptimisticBoostedStack implements IntStack {
 				top = top.next;
 				return toReturn.item;
 			}
+			
+			
 		}
 		catch(Exception e){
 			throw AbortedException.abortedException;
