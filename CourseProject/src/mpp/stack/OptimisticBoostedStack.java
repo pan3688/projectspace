@@ -87,10 +87,23 @@ public class OptimisticBoostedStack implements IntStack {
 	
 	public int top() throws AbortedException{
 		
-		if(top == null)
-			return Integer.MIN_VALUE;
-		else
-			return top.item;
+		try{
+			StackThread t = ((StackThread) Thread.currentThread());
+
+			if(!t.localAdds.isEmpty()){
+				int last = t.localAdds.size()-1;
+				OBNode toReturn = t.localAdds.get(last);
+				return toReturn.item;
+				
+			}
+			else if(top == null)
+				return Integer.MIN_VALUE;
+			else
+				return top.item;
+		}
+		catch(Exception e){
+			throw AbortedException.abortedException;
+		}
 	}
 	
 	public void commit() throws AbortedException{
