@@ -86,7 +86,10 @@ public class OptimisticBoostedQueue implements IntQueue {
 	}
 	@Override
 	public int element() throws AbortedException {
-		return head.next.item;
+		if(head.next != tail)
+			return head.next.item;
+		else
+			return -1;
 	}
 
 	@Override

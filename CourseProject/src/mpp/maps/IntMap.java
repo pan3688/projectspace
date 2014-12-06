@@ -10,7 +10,9 @@ public interface IntMap<K,V> {
 	
 	public boolean contains(K k) throws AbortedException;
 	
-	public boolean commit() throws AbortedException;
+	public V remove(K k) throws AbortedException;
+	
+	public void commit() throws AbortedException;
 	
 	public boolean abort();
 	
