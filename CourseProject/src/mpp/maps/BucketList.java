@@ -79,7 +79,7 @@ public class BucketList<T>{
 			}
 		}
 		
-		public boolean remove(OBNode myNode){
+		/*public boolean remove(OBNode myNode){
 			int key = myNode.key;
 			
 			boolean snip;
@@ -99,7 +99,7 @@ public class BucketList<T>{
 					return true;
 				}
 			}
-		}
+		}*/
 		
 		public BucketList<T> getSentinel(int index){
 			

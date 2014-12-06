@@ -12,7 +12,7 @@ import mpp.exception.AbortedException;
 
 public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 
-	private static final float THRESHHOLD = 0.4f;
+	private static final int THRESHHOLD = 10;
 	final int PUT = 1;
 	final int GET = 2;
 	final int CONTAINS = 3;
@@ -274,8 +274,7 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 			
 			OBNode pred = entry.pred;
 			OBNode curr = entry.pred.next.getReference();
-			while(curr.key < entry.key)
-			{
+			while(curr.key < entry.key){
 				pred = curr;
 				curr = curr.next.getReference();
 			}
@@ -295,11 +294,11 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 		
 		// unlock
 		iterator = write_set.iterator();
-		while(iterator.hasNext())
-		{
+		while(iterator.hasNext()){
+			
 			entry = iterator.next().getValue();
-			if(entry.pred.lockHolder == threadId)
-			{
+			
+			if(entry.pred.lockHolder == threadId){
 				entry.pred.lockHolder = -1;
 				entry.pred.lock.incrementAndGet();
 			}
@@ -320,15 +319,48 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 	}
 
 	@Override
-	public boolean abort() {
+	public void abort() {
 		// TODO Auto-generated method stub
-		return false;
+		ClosedMapThread t = ((ClosedMapThread)Thread.currentThread());
+		
+		Iterator<Entry<Integer, WriteSetEntry>> iterator = t.list_writeset.entrySet().iterator();
+		WriteSetEntry entry;
+		
+		while(iterator.hasNext())
+		{
+			entry = iterator.next().getValue();
+			if(entry.pred.lockHolder == t.getId())
+			{
+				entry.pred.lockHolder = -1;
+				entry.pred.lock.decrementAndGet();
+			}
+				
+			if(entry.operation == REMOVE && entry.curr.lockHolder == t.getId())
+			{
+				{
+					entry.curr.lockHolder = -1;
+					entry.curr.lock.decrementAndGet();
+				}
+			}
+		}
+		
+		t.list_readset.clear();
+		t.list_writeset.clear();
 	}
 
 	@Override
 	public boolean nonTransactionalPut(Integer k, Object v) {
 		// TODO Auto-generated method stub
-		return false;
+		int myBucket = k.hashCode() % bucketSize.get();
+		
+		BucketList<OBNode> b = getBucketList(myBucket);
+		
+		if(!b.add(new OBNode(k, v)))
+			return false;
+		
+		resize();
+		
+		return true;
 	}
 
 	private BucketList<OBNode> getBucketList(int myBucket){
@@ -354,5 +386,14 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 		}while(parent > myBucket);
 		parent = myBucket - parent;
 		return parent;
+	}
+	
+	private void resize(){
+		int setSizeNow = setSize.getAndIncrement();
+		int bucketSizeNow = bucketSize.get();
+		
+		if(setSizeNow / bucketSizeNow > THRESHHOLD)
+			bucketSize.compareAndSet(bucketSizeNow, 2 * bucketSizeNow);
+		
 	}
 }

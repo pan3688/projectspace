@@ -16,7 +16,7 @@ public interface IntMap<K,V> {
 	
 	public void commit() throws AbortedException;
 	
-	public boolean abort();
+	public void abort();
 	
 	public boolean nonTransactionalPut(K k,V v);
 }
