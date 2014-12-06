@@ -18,7 +18,7 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 	final int CONTAINS = 3;
 	final int REMOVE = 4;
 	
-	public BucketList<OBNode>[] bucket;
+	public volatile BucketList<OBNode>[] bucket;
 	public AtomicInteger bucketSize;
 	public AtomicInteger setSize;
 	
@@ -69,6 +69,10 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 	}
 	
 	public Object get(Integer k) throws AbortedException {
+		return null;
+	}
+	
+	public boolean contains(Integer k) throws AbortedException {
 		return operation(CONTAINS,new OBNode(k,null));
 	}
 	
@@ -85,7 +89,7 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 				else if(type == CONTAINS || type == GET)
 					return true;
 				else{
-					writeset.remove(PUT);
+					writeset.remove(myNode.key);
 					return true;
 				}
 			}else{
@@ -199,14 +203,7 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 	}
 
 	@Override
-	public boolean contains(Integer k) throws AbortedException {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
-	@Override
 	public void commit() throws AbortedException {
-		// TODO Auto-generated method stub
 		ClosedMapThread t = ((ClosedMapThread) Thread.currentThread());
 		
 		Set<Entry<Integer, WriteSetEntry>> write_set = t.list_writeset.entrySet();
@@ -267,7 +264,6 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 		{
 			entry = iterator.next().getValue();
 			
-			
 			OBNode pred = entry.pred;
 			OBNode curr = entry.pred.next.getReference();
 			while(curr.key < entry.key)
@@ -276,17 +272,14 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 				curr = curr.next.getReference();
 			}
 			
-			if(entry.operation == PUT)
-			{
+			if(entry.operation == PUT){
 				newNodeOrVictim = new OBNode(entry.key,entry.value);
 				newNodeOrVictim.lock.set(1);
 				newNodeOrVictim.lockHolder = threadId;
 				entry.newNode = newNodeOrVictim;
 				newNodeOrVictim.next.set(curr,false);
 				pred.next.set(newNodeOrVictim,false);
-			}
-			else // remove
-			{
+			}else{
 				curr.marked = true;
 				pred.next = entry.curr.next;
 			}			
