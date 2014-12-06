@@ -6,8 +6,10 @@ import java.util.Random;
 import java.util.TreeMap;
 
 import mpp.maps.IntMap;
+import mpp.maps.OBNode;
 import mpp.maps.OptimisticBoostedClosedMap;
-import mpp.maps.OptimisticBoostedOpenMap;
+import mpp.maps.open.BucketListOpen;
+import mpp.maps.open.OptimisticBoostedOpenMap;
 
 public class OpenMapThread extends BenchmarkThread {
 	
@@ -45,4 +47,9 @@ public class OpenMapThread extends BenchmarkThread {
 			}
 			);
 	public ArrayList<OptimisticBoostedOpenMap.ReadSetEntry> list_readset = new ArrayList<OptimisticBoostedOpenMap.ReadSetEntry>();
+	
+	public BucketListOpen<OBNode>[][] tableLocal;
+	public int[][] tableOps;
+	public int initialCapacity;
+			
 }

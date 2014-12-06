@@ -3,6 +3,8 @@ package mpp.maps;
 import mpp.exception.AbortedException;
 
 public interface IntMap<K,V> {
+	
+	public void begin();
 
 	public boolean put(K k,V v) throws AbortedException;
  
