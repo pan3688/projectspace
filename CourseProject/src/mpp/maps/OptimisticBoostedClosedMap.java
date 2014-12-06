@@ -18,7 +18,7 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 	final int CONTAINS = 3;
 	final int REMOVE = 4;
 	
-	public BucketList<OBNode>[] bucket;
+	public volatile BucketList<OBNode>[] bucket;
 	public AtomicInteger bucketSize;
 	public AtomicInteger setSize;
 	
@@ -61,7 +61,7 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 	}
 	
 	public boolean put(Integer k,Object v) throws AbortedException{
-		return operation(PUT,new OBNode(k, v));
+		return ((boolean)operation(PUT,new OBNode(k, v)));
 	}
 	
 	public Object remove(Integer k) throws AbortedException {
@@ -69,10 +69,14 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 	}
 	
 	public Object get(Integer k) throws AbortedException {
-		return operation(CONTAINS,new OBNode(k,null));
+		return operation(GET,new OBNode(k,null) );
 	}
 	
-	private boolean operation(int type,OBNode myNode) throws AbortedException{
+	public boolean contains(Integer k) throws AbortedException {
+		return ((boolean)operation(CONTAINS,new OBNode(k,null)));
+	}
+	
+	private Object operation(int type,OBNode myNode) throws AbortedException{
 		
 		TreeMap<Integer, WriteSetEntry> writeset = ((ClosedMapThread) Thread.currentThread()).list_writeset;
 		
@@ -82,16 +86,19 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 			if(entry.operation == PUT){
 				if(type == PUT)
 					return false;
-				else if(type == CONTAINS || type == GET)
-					return true;
-				else{
-					writeset.remove(PUT);
+				else if(type == CONTAINS || type == GET){
+					return entry.value;		//returning the mapped object
+//					return true;
+				}else{
+					writeset.remove(myNode.key);
 					return true;
 				}
 			}else{
-				if(type == REMOVE || type == CONTAINS)
+				if( type == CONTAINS)
 					return false;
-				else{
+				else if(type == REMOVE || type == GET){
+					return null;	// returning a null object
+				}else{
 					writeset.remove(myNode.key);
 					return true;
 				}
@@ -125,14 +132,19 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 				return false;
 			}else{
 				readset.add(new ReadSetEntry(pred, curr, true));
-				writeset.put(myNode.key, new WriteSetEntry(pred, curr, REMOVE, myNode.key,myNode.value));
-				return true;
+				
+				if(type == REMOVE)
+					writeset.put(myNode.key, new WriteSetEntry(pred, curr, REMOVE, myNode.key,myNode.value));
+				
+				return curr.value;
 			}
 		}else{
 			readset.add(new ReadSetEntry(pred, curr, true));
-			if(type == CONTAINS || type == REMOVE)
+			if(type == CONTAINS)
 				return false;
-			else{
+			else if(type == GET || type == REMOVE){
+				return null;
+			}else{
 				writeset.put(myNode.key, new WriteSetEntry(pred, curr, PUT, myNode.key,myNode.value));
 				return true;
 			}
@@ -199,14 +211,7 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 	}
 
 	@Override
-	public boolean contains(Integer k) throws AbortedException {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
-	@Override
 	public void commit() throws AbortedException {
-		// TODO Auto-generated method stub
 		ClosedMapThread t = ((ClosedMapThread) Thread.currentThread());
 		
 		Set<Entry<Integer, WriteSetEntry>> write_set = t.list_writeset.entrySet();
@@ -267,7 +272,6 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 		{
 			entry = iterator.next().getValue();
 			
-			
 			OBNode pred = entry.pred;
 			OBNode curr = entry.pred.next.getReference();
 			while(curr.key < entry.key)
@@ -276,17 +280,14 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 				curr = curr.next.getReference();
 			}
 			
-			if(entry.operation == PUT)
-			{
+			if(entry.operation == PUT){
 				newNodeOrVictim = new OBNode(entry.key,entry.value);
 				newNodeOrVictim.lock.set(1);
 				newNodeOrVictim.lockHolder = threadId;
 				entry.newNode = newNodeOrVictim;
 				newNodeOrVictim.next.set(curr,false);
 				pred.next.set(newNodeOrVictim,false);
-			}
-			else // remove
-			{
+			}else{
 				curr.marked = true;
 				pred.next = entry.curr.next;
 			}			

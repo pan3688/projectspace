@@ -99,6 +99,7 @@ public class BucketList<T>{
 				}
 			}
 		}
+		
 		public BucketList<T> getSentinel(int index){
 			
 			int key = makeSentinelKey(index);
@@ -110,19 +111,30 @@ public class BucketList<T>{
 				OBNode pred = window.pred;
 				OBNode curr = window.curr;
 				
-				if(curr.key == key){
-					return new BucketList<T>(curr);
-				}else{
-					OBNode myNode = new OBNode(key, null);
-					myNode.next.set(pred.next.getReference(), false);
-					splice = pred.next.compareAndSet(curr, myNode, false, false);
+				try{
+					pred.lock.getAndIncrement();
+					curr.lock.getAndIncrement();
+					pred.lockHolder = Thread.currentThread().getId();
+					curr.lockHolder = Thread.currentThread().getId();
 					
-					if(splice)
-						return new BucketList<T>(myNode);
-					else
-						continue;
+					if(curr.key == key){
+						return new BucketList<T>(curr);
+					}else{
+						OBNode myNode = new OBNode(key, null);
+						myNode.next.set(pred.next.getReference(), false);
+						splice = pred.next.compareAndSet(curr, myNode, false, false);
+						
+						if(splice)
+							return new BucketList<T>(myNode);
+						else
+							continue;
+					}
+				}finally{
+					pred.lock.getAndDecrement();
+					curr.lock.getAndDecrement();
+					pred.lockHolder = -1;
+					curr.lockHolder = -1;
 				}
-				
 			}
 		}
 	}
