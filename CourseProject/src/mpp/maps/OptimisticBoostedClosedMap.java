@@ -61,7 +61,7 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 	}
 	
 	public boolean put(Integer k,Object v) throws AbortedException{
-		return operation(PUT,new OBNode(k, v));
+		return ((boolean)operation(PUT,new OBNode(k, v)));
 	}
 	
 	public Object remove(Integer k) throws AbortedException {
@@ -69,14 +69,14 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 	}
 	
 	public Object get(Integer k) throws AbortedException {
-		return null;
+		return operation(GET,new OBNode(k,null) );
 	}
 	
 	public boolean contains(Integer k) throws AbortedException {
-		return operation(CONTAINS,new OBNode(k,null));
+		return ((boolean)operation(CONTAINS,new OBNode(k,null)));
 	}
 	
-	private boolean operation(int type,OBNode myNode) throws AbortedException{
+	private Object operation(int type,OBNode myNode) throws AbortedException{
 		
 		TreeMap<Integer, WriteSetEntry> writeset = ((ClosedMapThread) Thread.currentThread()).list_writeset;
 		
@@ -86,16 +86,19 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 			if(entry.operation == PUT){
 				if(type == PUT)
 					return false;
-				else if(type == CONTAINS || type == GET)
-					return true;
-				else{
+				else if(type == CONTAINS || type == GET){
+					return entry.value;		//returning the mapped object
+//					return true;
+				}else{
 					writeset.remove(myNode.key);
 					return true;
 				}
 			}else{
-				if(type == REMOVE || type == CONTAINS)
+				if( type == CONTAINS)
 					return false;
-				else{
+				else if(type == REMOVE || type == GET){
+					return null;	// returning a null object
+				}else{
 					writeset.remove(myNode.key);
 					return true;
 				}
@@ -129,14 +132,19 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 				return false;
 			}else{
 				readset.add(new ReadSetEntry(pred, curr, true));
-				writeset.put(myNode.key, new WriteSetEntry(pred, curr, REMOVE, myNode.key,myNode.value));
-				return true;
+				
+				if(type == REMOVE)
+					writeset.put(myNode.key, new WriteSetEntry(pred, curr, REMOVE, myNode.key,myNode.value));
+				
+				return curr.value;
 			}
 		}else{
 			readset.add(new ReadSetEntry(pred, curr, true));
-			if(type == CONTAINS || type == REMOVE)
+			if(type == CONTAINS)
 				return false;
-			else{
+			else if(type == GET || type == REMOVE){
+				return null;
+			}else{
 				writeset.put(myNode.key, new WriteSetEntry(pred, curr, PUT, myNode.key,myNode.value));
 				return true;
 			}

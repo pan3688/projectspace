@@ -57,7 +57,7 @@ public class BucketList<T>{
 				}
 			}
 		}
-		/*public boolean add(OBNode myNode){
+		public boolean add(OBNode myNode){
 			int key = myNode.key;
 			
 			while(true){
@@ -98,7 +98,8 @@ public class BucketList<T>{
 					return true;
 				}
 			}
-		}*/
+		}
+		
 		public BucketList<T> getSentinel(int index){
 			
 			int key = makeSentinelKey(index);
