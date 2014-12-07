@@ -86,7 +86,7 @@ public class ClosedMapThread extends BenchmarkThread {
 						if (m_write) {
 							if(m_map.put(addItems[c],addItems[c] +""))
 							{
-//								System.out.println("Put succeeded....");
+//								System.out.println("Put succeeded....for :" + addItems[c]);
 //								if(initial_adds == MAX_OPERATIONS_PER_TRANSACTION)
 									m_write = false;
 //								else
@@ -100,13 +100,15 @@ public class ClosedMapThread extends BenchmarkThread {
 							}
 							if (phase == Benchmark.TEST_PHASE)
 								nb_add++;
-						} else {
-							if(m_map.remove(m_last[remove_index]) != null)
+						}else{
+							if(m_map.remove(addItems[c]) != null)
 							{
 								if (phase == Benchmark.TEST_PHASE)
 									nb_succ_remove++;
-							}
+							}/*else
+								System.out.println("remove is null........for :" + m_last[remove_index]);*/
 							remove_index++;
+//							System.out.println("REMOVE INDEX:\t\t\t\t" + remove_index);
 							if(remove_index == ClosedMapBenchmark.MAX_OPERATIONS_PER_TRANSACTION)
 								remove_index = 0;
 							m_write = true;
@@ -119,7 +121,14 @@ public class ClosedMapThread extends BenchmarkThread {
 							nb_contains++;
 					}
 				}
-				m_map.commit();
+				
+				try{
+					m_map.commit();
+				}catch(Exception e){
+//					e.printStackTrace();
+					throw e;
+				}
+				
 				m_nb_add += nb_add;
 				m_nb_remove += nb_remove;
 				m_nb_contains += nb_contains;

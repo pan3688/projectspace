@@ -113,16 +113,17 @@ public class BucketList<T>{
 				Window window = find(head,key);
 				OBNode pred = window.pred;
 				OBNode curr = window.curr;
-				
-				try{
-					pred.lock.getAndIncrement();
-					curr.lock.getAndIncrement();
-					pred.lockHolder = Thread.currentThread().getId();
-					curr.lockHolder = Thread.currentThread().getId();
 					
-					if(curr.key == key){
-						return new BucketList<T>(curr);
-					}else{
+				if(curr.key == key){
+					return new BucketList<T>(curr);
+				}else{
+						
+					try{
+						pred.lock.getAndIncrement();
+						curr.lock.getAndIncrement();
+						pred.lockHolder = Thread.currentThread().getId();
+						curr.lockHolder = Thread.currentThread().getId();
+						
 						OBNode myNode = new OBNode(key, null);
 						
 						myNode.next.set(pred.next.getReference(), false);
@@ -133,12 +134,13 @@ public class BucketList<T>{
 							return new BucketList<T>(myNode);
 						else
 							continue;
+						
+					}finally{
+						pred.lock.getAndDecrement();
+						curr.lock.getAndDecrement();
+						pred.lockHolder = -1;
+						curr.lockHolder = -1;
 					}
-				}finally{
-					pred.lock.getAndDecrement();
-					curr.lock.getAndDecrement();
-					pred.lockHolder = -1;
-					curr.lockHolder = -1;
 				}
 			}
 		}
