@@ -3,7 +3,6 @@ package mpp.maps.open;
 import java.util.ArrayList;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicMarkableReference;
 
 import mpp.benchmarks.OpenMapThread;
 import mpp.maps.open.OptimisticBoostedOpenMap.ReadSetEntry;
@@ -23,7 +22,7 @@ public class BucketListOpen<T>{
 			tail = new OBNode(Integer.MAX_VALUE,Integer.MAX_VALUE,null);
 			head.next = tail;
 			head.marked = false;
-			bucketSize.set(0);
+			size.set(0);
 			parentHash = hash;
 		}
 		
@@ -63,6 +62,19 @@ public class BucketListOpen<T>{
 				readset.add(new ReadSetEntry(pred, curr, false));
 				return true;
 			}
+			else
+				return false;
+		}
+		
+		public boolean containsNonTrans(int item, int itemKey){
+			
+			//convert itemKey to split order key before searching
+			int key = makeOrdinaryKey(itemKey);
+			Window window = find(head, key, item);
+			OBNode pred = window.pred;
+			OBNode curr = window.curr;
+			if(curr.item == item && !curr.marked)
+				return true;
 			else
 				return false;
 		}
@@ -117,6 +129,22 @@ public class BucketListOpen<T>{
 			}
 		}
 		
+		public boolean addNonTrans(int item, int itemKey, Object value){
+			
+			int key = makeOrdinaryKey(itemKey);
+			Window window = find(head, key, item);
+			OBNode pred = window.pred;
+			OBNode curr = window.curr;
+			if(curr.item == item && !curr.marked)
+				return false;
+			else{
+				OBNode myNode = new OBNode(key, item, value);
+				myNode.next = curr;
+				pred.next = myNode;
+				return true;
+			}
+		}		
+		
 		public Object remove(int item, int itemKey){
 			
 			ArrayList<ReadSetEntry> readset = ((OpenMapThread)Thread.currentThread()).list_readset;
@@ -134,6 +162,20 @@ public class BucketListOpen<T>{
 			else
 				return null;
 		}
+		
+		public Object removeNonTrans(int item, int itemKey){
+			
+			int key = makeOrdinaryKey(itemKey);
+			Window window = find(head, key, item);
+			OBNode pred = window.pred;
+			OBNode curr = window.curr;
+			if(curr.item == item && !curr.marked){
+				pred.next = curr.next;				
+				return curr.value;
+			}
+			else
+				return null;
+		}		
 		
 		public OBNode getFirst(){
 			

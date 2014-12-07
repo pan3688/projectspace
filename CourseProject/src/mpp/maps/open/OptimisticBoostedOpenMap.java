@@ -14,7 +14,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import mpp.benchmarks.OpenMapThread;
 import mpp.exception.AbortedException;
 import mpp.maps.IntMap;
-import mpp.maps.Window;
+
 
 public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 
@@ -213,6 +213,20 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 			return false;
 		
 	}
+	
+	private boolean containsNonTransactional(int item){
+		
+		int h0 = hash0(item) % capacity.get();
+		int h1 = hash1(item) % capacity.get();
+		
+		if(table[0][h0].containsNonTrans(item, hash0(item)))
+			return true;
+		else if(table[1][h1].containsNonTrans(item, hash1(item)))
+			return true;
+		else
+			return false;
+		
+	}	
 	
 	private Object getFromTable(int item){
 		
@@ -528,9 +542,130 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 	}
 
 	@Override
-	public boolean nonTransactionalPut(Integer k, Object v) {
-		// TODO Auto-generated method stub
+	public boolean nonTransactionalPut(Integer item, Object v) {
+		
+		if(addNonTransactional(item, v))
+			return true;
+		else
+			return false;
+	}
+	
+	private boolean addNonTransactional(int item, Object v){
+		
+		int i = -1, h = -1;
+		boolean mustResize = false;
+		int h0 = hash0(item) % capacity.get();
+		int h1 = hash1(item) % capacity.get();
+	
+		if(containsNonTransactional(item))
+			return false;
+		
+		BucketListOpen<OBNode> b0 = getBucketList(0, h0);	
+		BucketListOpen<OBNode> b1 = getBucketList(1, h1);
+		
+		if(b0.size.get() < THRESHOLD ){
+			if(b0.addNonTrans(item, hash0(item), v))
+				b0.size.getAndIncrement();
+			return true;
+		}
+		else if(b1.size.get() < THRESHOLD ){
+			if(b1.addNonTrans(item, hash1(item), v))
+				b1.size.getAndIncrement();
+			return true;
+		}
+		else if(b0.size.get() < PROBE_SIZE ){
+			if(b0.addNonTrans(item, hash0(item), v))
+				b0.size.getAndIncrement();
+			i = 0; h = h0;
+		}
+		else if(b1.size.get() < PROBE_SIZE ){
+			if(b1.addNonTrans(item, hash1(item), v))
+				b1.size.getAndIncrement();
+			i = 1; h = h1;
+		}
+		else
+			mustResize = true;
+		
+		if(mustResize){
+			resizeNonTransactional();
+			addNonTransactional(item, v);
+		}
+		else if(!relocateNonTransactional(i,h))
+			resizeNonTransactional();
+		
+		return true;
+	}
+	
+		private boolean relocateNonTransactional(int i, int hi){
+		
+		int hj = 0;
+		int j = i-1;
+		for(int round = 0; round < LIMIT; round++){
+			BucketListOpen<OBNode> iSet = table[i][hi];
+			OBNode first;
+			first = iSet.getFirst();
+				
+			switch(i){
+			case 0: hj = hash1(first.item) % capacity.get(); break;
+			case 1: hj = hash0(first.item) % capacity.get(); break;
+			}
+			
+			BucketListOpen<OBNode> jSet = table[j][hj];
+			
+			if(iSet.removeNonTrans(first.item, first.key) != null){
+				iSet.size.getAndDecrement();
+				if(jSet.size.get() < THRESHOLD ){
+					if(jSet.addNonTrans(first.item, first.key, first.value))
+						jSet.size.getAndIncrement();
+					return true;
+				}
+				else if(jSet.size.get() < PROBE_SIZE){
+					if(jSet.addNonTrans(first.item, first.key, first.value))
+						jSet.size.getAndIncrement();
+					i = 1 - i;
+					hi = hj;
+					j = 1 - j;
+				}
+				else{
+					if(iSet.addNonTrans(first.item, first.key, first.value))
+						iSet.size.getAndIncrement();
+					return false;
+				}
+			}
+			else if(iSet.size.get() >= THRESHOLD){
+				continue;
+			}
+			else
+				return true;
+		}
+		
 		return false;
+	}
+		
+		
+	private void resizeNonTransactional(){
+		
+		int oldCapacity = capacity.get();
+		capacity.set(2 * oldCapacity);
+		
+		BucketListOpen<OBNode>[][] oldTable = table;
+		table = new BucketListOpen[2][capacity.get()];
+		table[0][0] = new BucketListOpen<>(0);
+		table[1][0] = new BucketListOpen<>(1);
+		
+		for(int i = 0; i < 2; i++){
+			for(int j = 0; j < oldCapacity; j++){
+				if(oldTable[i][j] != null){
+					int size = oldTable[i][j].size.get();
+					OBNode curr = oldTable[i][j].head.next;
+					while(size > 0){
+						addNonTransactional(curr.item, curr.value);
+					}
+					
+				}
+			}
+		}
+		
 	}
 
 	private BucketListOpen<OBNode> getBucketList(int i, int myBucket){

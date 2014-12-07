@@ -418,4 +418,8 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 			bucketSize.compareAndSet(bucketSizeNow, 2 * bucketSizeNow);
 		
 	}
+	
+	public void begin(){
+		
+	}
 }
