@@ -97,25 +97,20 @@ public class BucketListOpen<T>{
 			return new Window(pred,curr);
 		}
 		
-		public boolean add(OBNode myNode){
-			int key = myNode.key;
+		public boolean add(int item, int itemKey){
 			
-			while(true){
-				Window window = find(head,key);
-				OBNode pred = window.pred;
-				OBNode curr = window.curr;
-				
-				if(curr.key == key){
-					return false;
-				}else{
-					OBNode node = myNode;
-					node.next = new AtomicMarkableReference<OBNode>(curr, false);
-					
-					if(pred.next.compareAndSet(curr, node, false, false)){
-						return true;
-					}
-				}
+			ArrayList<ReadSetEntry> readset = ((OpenMapThread)Thread.currentThread()).list_readset;
+			TreeMap<Integer, WriteSetEntry> writeset = ((OpenMapThread) Thread.currentThread()).list_writeset;
+			
+			int key = makeOrdinaryKey(itemKey);
+			Window window = find(head, key, item);
+			OBNode pred = window.pred;
+			OBNode curr = window.curr;
+			if(curr.item == item && !curr.marked){
+				return false;
 			}
+			else
+				return null;
 		}
 		
 		public Object remove(int item, int itemKey){

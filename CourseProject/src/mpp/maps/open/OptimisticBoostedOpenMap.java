@@ -250,6 +250,7 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 	private boolean relocate(int i, int hi){
 		
 		int tLocalCapacity = ((OpenMapThread) Thread.currentThread()).initialCapacity;
+		BucketListOpen<OBNode>[][] tableLocal = ((OpenMapThread) Thread.currentThread()).tableLocal;
 		
 		int hj = 0;
 		int j = i-1;
@@ -267,9 +268,12 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 			BucketListOpen<OBNode> jSet = table[j][hj];
 			
 			if(iSet.remove(first.item, first.key) != null){
-				
+				if(tableLocal[j][hj].size.get() + ((OpenMapThread)Thread.currentThread()).tableOps[j][hj] < THRESHOLD ){
+					jSet.add(first.item, first.key);
+					return true;
+				}
 			}
-			else if(iSet.size.get() + ((OpenMapThread)Thread.currentThread()).tableOps[i][hi] >= THRESHOLD){
+			else if(tableLocal[i][hi].size.get() + ((OpenMapThread)Thread.currentThread()).tableOps[i][hi] >= THRESHOLD){
 				continue;
 			}
 			else
