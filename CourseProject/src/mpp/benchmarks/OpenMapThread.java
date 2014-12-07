@@ -91,7 +91,7 @@ public class OpenMapThread extends BenchmarkThread {
 				for (int c = 0; c < m_ops; c++) {
 					if (operationType[c] == 1) {
 						if (m_write) {
-							if(m_map.put(addItems[c],addItems[c] +""))
+							if(m_map.put(addItems[c], addItems[c] +""))
 							{
 //								System.out.println("Put succeeded....for :" + addItems[c]);
 //								if(initial_adds == MAX_OPERATIONS_PER_TRANSACTION)
@@ -100,7 +100,7 @@ public class OpenMapThread extends BenchmarkThread {
 //									initial_adds++;
 								m_last[add_index] = addItems[c];
 								add_index++;
-								if(add_index == ClosedMapBenchmark.MAX_OPERATIONS_PER_TRANSACTION)
+								if(add_index == OpenMapBenchmark.MAX_OPERATIONS_PER_TRANSACTION)
 									add_index = 0;
 								if(phase == Benchmark.TEST_PHASE)
 									nb_succ_add++;
@@ -116,7 +116,7 @@ public class OpenMapThread extends BenchmarkThread {
 								System.out.println("remove is null........for :" + m_last[remove_index]);*/
 							remove_index++;
 //							System.out.println("REMOVE INDEX:\t\t\t\t" + remove_index);
-							if(remove_index == ClosedMapBenchmark.MAX_OPERATIONS_PER_TRANSACTION)
+							if(remove_index == OpenMapBenchmark.MAX_OPERATIONS_PER_TRANSACTION)
 								remove_index = 0;
 							m_write = true;
 							if (phase == Benchmark.TEST_PHASE)
@@ -157,4 +157,11 @@ public class OpenMapThread extends BenchmarkThread {
 			}
 		}
 	}
+	
+	@Override
+	public String getStats() {
+		return "A=" + m_nb_add + ", R=" + m_nb_remove + ", SA=" + m_nb_succ_add + ", SR=" + m_nb_succ_remove + ", C=" + m_nb_contains
+				+ ", Aborts=" + m_nb_aborts;
+	}	
+	
 }
