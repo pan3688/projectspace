@@ -31,7 +31,7 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 	private final Lock write = lock.writeLock();
 	
 	public volatile BucketListOpen<OBNode>[][] table;
-	public AtomicInteger capacity;
+	public AtomicInteger capacity = new AtomicInteger();
 	
 	@SuppressWarnings("unchecked")
 	public OptimisticBoostedOpenMap(int size) {
@@ -43,7 +43,7 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 	}
 	
 	public static int hash0(int x){
-		return (x % 15);
+		return x;
 	}
 	
 	public static int hash1(int x){
@@ -218,10 +218,13 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		int h0 = hash0(item) % capacity.get();
 		int h1 = hash1(item) % capacity.get();
 		
-		if(table[0][h0].containsNonTrans(item, hash0(item)))
+		if(table[0][h0].containsNonTrans(item, hash0(item))){
+			//System.out.println(item + " Present");
 			return true;
-		else if(table[1][h1].containsNonTrans(item, hash1(item)))
+		}
+		else if(table[1][h1].containsNonTrans(item, hash1(item))){
 			return true;
+		}
 		else
 			return false;
 		
@@ -538,13 +541,40 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 	@Override
 	public void abort() {
 		// TODO Auto-generated method stub
+		OpenMapThread t = ((OpenMapThread)Thread.currentThread());
+
+		Iterator<Entry<Integer, WriteSetEntry>> iterator = t.list_writeset.entrySet().iterator();
+		WriteSetEntry entry;
+
+		while(iterator.hasNext())
+		{
+			entry = iterator.next().getValue();
+			if(entry.pred.lockHolder == t.getId())
+			{
+				entry.pred.lockHolder = -1;
+				entry.pred.lock.decrementAndGet();
+			}
+
+			if(entry.operation == REMOVE && entry.curr.lockHolder == t.getId())
+			{
+				{
+					entry.curr.lockHolder = -1;
+					entry.curr.lock.decrementAndGet();
+				}
+			}
+		}
+
+		t.list_readset.clear();
+		t.list_writeset.clear();
 	}
 
 	@Override
 	public boolean nonTransactionalPut(Integer item, Object v) {
 		
-		if(addNonTransactional(item, v))
+		if(addNonTransactional(item, v)){
+			System.out.println(item + "added");
 			return true;
+		}
 		else
 			return false;
 	}
@@ -556,11 +586,12 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		int h0 = hash0(item) % capacity.get();
 		int h1 = hash1(item) % capacity.get();
 	
-		if(containsNonTransactional(item))
-			return false;
-		
 		BucketListOpen<OBNode> b0 = getBucketList(0, h0);	
 		BucketListOpen<OBNode> b1 = getBucketList(1, h1);
+		
+		if(containsNonTransactional(item)){
+			return false;
+		}
 		
 		if(b0.size.get() < THRESHOLD ){
 			if(b0.addNonTrans(item, hash0(item), v))
@@ -598,7 +629,7 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		private boolean relocateNonTransactional(int i, int hi){
 		
 		int hj = 0;
-		int j = i-1;
+		int j = 1 - i;
 		for(int round = 0; round < LIMIT; round++){
 			BucketListOpen<OBNode> iSet = table[i][hi];
 			OBNode first;
@@ -680,10 +711,16 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		if(table[i][parent] == null)
 			initializeBucket(i,parent);
 		BucketListOpen<OBNode> b = table[i][parent].getSentinel(i, myBucket);
-		((OpenMapThread) Thread.currentThread()).tableLocal[i][parent].size.set(table[i][parent].size.get());
-		((OpenMapThread) Thread.currentThread()).tableLocal[i][myBucket].size.set(b.size.get());
 		if(b != null)
 			table[i][myBucket] = b;
+		try{
+			((OpenMapThread)Thread.currentThread()).tableLocal[i][parent].size.set(table[i][parent].size.get());
+			((OpenMapThread)Thread.currentThread()).tableLocal[i][myBucket].size.set(b.size.get());
+
+		}
+		catch(ClassCastException e){
+			
+		}
 	}
 	
 	private int getParent(int myBucket){

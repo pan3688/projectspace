@@ -145,6 +145,7 @@ public class OpenMapThread extends BenchmarkThread {
 //				System.out.println("COMMIT: oldaddindex=" + old_add_index + " addindex=" + add_index + " oldremoveindex=" + old_remove_index + " removeindex=" + remove_index);
 				
 			} catch (AbortedException e) {
+				
 				flag = true;
 				for(int i=0; i<OpenMapBenchmark.MAX_OPERATIONS_PER_TRANSACTION;i++)
 					m_last[i] = oldm_last[i];

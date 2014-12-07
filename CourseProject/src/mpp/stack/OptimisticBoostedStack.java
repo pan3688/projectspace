@@ -21,7 +21,7 @@ public class OptimisticBoostedStack implements IntStack {
 	OBNode top = null;
 	private final Lock lock = new ReentrantLock();
 	
-	public boolean push(int value) throws AbortedException{
+	public boolean pushStack(int value) throws AbortedException{
 		
 		try{
 			StackThread t = ((StackThread) Thread.currentThread());
@@ -50,7 +50,7 @@ public class OptimisticBoostedStack implements IntStack {
 		}
 	}
 	
-	public int pop() throws AbortedException{
+	public int popStack() throws AbortedException{
 		
 		try{
 			StackThread t = ((StackThread) Thread.currentThread());
@@ -85,7 +85,7 @@ public class OptimisticBoostedStack implements IntStack {
 	}
 	
 	
-	public int top() throws AbortedException{
+	public int topStack() throws AbortedException{
 		
 		try{
 			StackThread t = ((StackThread) Thread.currentThread());

@@ -12,13 +12,16 @@ public class BucketListOpen<T>{
 		
 		public static final int HI_MASK = 0x80000000;
 		public static final int MASK = 0x00FFFFFF;
+		public static final int ONE = 0x00000001;
 		public OBNode head;
 		public OBNode tail;
-		public AtomicInteger size;
+		public AtomicInteger size = new AtomicInteger();
 		public final int parentHash;
 		
 		public BucketListOpen(int hash){
-			head = new OBNode(0,0,null);
+			
+			int key = makeSentinelKey(hash, 0);
+			head = new OBNode(key,0,null);
 			tail = new OBNode(Integer.MAX_VALUE,Integer.MAX_VALUE,null);
 			head.next = tail;
 			head.marked = false;
@@ -33,8 +36,14 @@ public class BucketListOpen<T>{
 		
 		public int makeOrdinaryKey(int key){
 			
+			/*int code = key & MASK;
+			return Integer.reverse(code | HI_MASK);*/
+			
 			int code = key & MASK;
-			return Integer.reverse(code | HI_MASK);
+			int rev = Integer.reverse(code);
+			code = rev >>> 1;
+			return (code | ONE);
+			
 		}
 		
 		private int makeSentinelKey(int i, int bucketIndex){
@@ -47,7 +56,7 @@ public class BucketListOpen<T>{
 				key = OptimisticBoostedOpenMap.hash1(bucketIndex);
 			}
 				
-			return Integer.reverse(key & MASK);
+			return Integer.reverse(key & MASK) >>> 1;
 		}
 		
 		public boolean contains(int item, int itemKey){

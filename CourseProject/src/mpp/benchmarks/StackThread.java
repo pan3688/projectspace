@@ -67,7 +67,7 @@ public class StackThread extends BenchmarkThread{
 					if (executionOperations[0] == 1) {
 						if (m_write) {
 							m_last = executionItems[c];
-							result = m_stack.push(m_last);
+							result = m_stack.pushStack(m_last);
 							if(result)
 								m_write = false;
 							if (phase == Benchmark.TEST_PHASE)
@@ -77,7 +77,7 @@ public class StackThread extends BenchmarkThread{
 									nb_succ_add++;
 							}
 						} else {
-							if(m_stack.pop() != -1)
+							if(m_stack.popStack() != -1)
 							{
 								result = true;
 								m_write = true;
@@ -90,7 +90,7 @@ public class StackThread extends BenchmarkThread{
 							}
 						}
 					} else {
-						m_stack.top();
+						m_stack.topStack();
 						if (phase == Benchmark.TEST_PHASE)
 							nb_contains++;
 					}
@@ -136,7 +136,7 @@ public class StackThread extends BenchmarkThread{
 					if (executionOperations[c] == 1) {
 						if (m_write) {
 							m_last = executionItems[c];
-							if(m_stack.push(m_last))
+							if(m_stack.pushStack(m_last))
 								m_write = false;
 							if (phase == Benchmark.TEST_PHASE)
 							{
@@ -145,7 +145,7 @@ public class StackThread extends BenchmarkThread{
 									nb_succ_add++;
 							}
 						} else {
-							if(m_stack.pop() != -1)
+							if(m_stack.popStack() != -1)
 								m_write = true;
 							if (phase == Benchmark.TEST_PHASE)
 							{
@@ -155,7 +155,7 @@ public class StackThread extends BenchmarkThread{
 							}
 						}
 					} else {
-						m_stack.top();
+						m_stack.topStack();
 						if (phase == Benchmark.TEST_PHASE)
 							nb_contains++;
 					}

@@ -14,6 +14,7 @@ public class OBNode {
 	public OBNode(int key, int item, Object value) {
 		this.key = key;
 		this.value = value;
+		this.item = item;
 		marked = false;
 	}
 }
