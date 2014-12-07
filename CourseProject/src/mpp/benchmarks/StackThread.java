@@ -127,7 +127,6 @@ public class StackThread extends BenchmarkThread{
 		boolean flag = true, oldm_write = m_write;
 		int oldm_last = m_last;
 		
-		m_stack.begin();
 		while (flag) {
 			flag = false;
 			oldm_write = m_write;

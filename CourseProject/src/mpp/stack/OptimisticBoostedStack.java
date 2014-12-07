@@ -155,10 +155,4 @@ public class OptimisticBoostedStack implements IntStack {
 		return true;
 	}
 	
-	public void begin(){
-		StackThread t = ((StackThread) Thread.currentThread());
-		t.localAdds.clear();
-		t.iswriter = false;
-	}
-
 }

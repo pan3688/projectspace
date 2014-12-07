@@ -16,8 +16,6 @@ public interface IntStack {
 	
 	public boolean nonTransactionalPush(int value);
 	
-	public void begin();
-	
 }
 
 
