@@ -97,7 +97,7 @@ public class BucketListOpen<T>{
 			return new Window(pred,curr);
 		}
 		
-		public boolean add(int item, int itemKey){
+		public boolean add(int item, int itemKey, Object value){
 			
 			ArrayList<ReadSetEntry> readset = ((OpenMapThread)Thread.currentThread()).list_readset;
 			TreeMap<Integer, WriteSetEntry> writeset = ((OpenMapThread) Thread.currentThread()).list_writeset;
@@ -106,11 +106,13 @@ public class BucketListOpen<T>{
 			Window window = find(head, key, item);
 			OBNode pred = window.pred;
 			OBNode curr = window.curr;
-			if(curr.item == item && !curr.marked){
+			if(curr.item == item && !curr.marked)
 				return false;
+			else{
+				readset.add(new ReadSetEntry(pred, curr, false));
+				writeset.put(curr.item, new WriteSetEntry(pred, curr, OptimisticBoostedOpenMap.PUT, key, item, value, parentHash));
+				return true;
 			}
-			else
-				return null;
 		}
 		
 		public Object remove(int item, int itemKey){
@@ -124,7 +126,7 @@ public class BucketListOpen<T>{
 			OBNode curr = window.curr;
 			if(curr.item == item && !curr.marked){
 				readset.add(new ReadSetEntry(pred, curr, false));
-				writeset.put(curr.item, new WriteSetEntry(pred, curr, OptimisticBoostedOpenMap.REMOVE, itemKey, curr.item, curr.value, parentHash));
+				writeset.put(curr.item, new WriteSetEntry(pred, curr, OptimisticBoostedOpenMap.REMOVE, curr.key, curr.item, curr.value, parentHash));
 				return curr.value;
 			}
 			else

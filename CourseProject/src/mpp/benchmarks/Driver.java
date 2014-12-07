@@ -33,12 +33,12 @@ public class Driver {
 			} else
 				break;
 		}
-		if (arg < args.length) {
+		if(arg < args.length){
 			benchmark = args[arg++];
 			String[] s = new String[args.length - arg];
 			System.arraycopy(args, arg, s, 0, s.length);
 			args = s;
-		} else
+		}else
 			error = true;
 
 		if (error) {

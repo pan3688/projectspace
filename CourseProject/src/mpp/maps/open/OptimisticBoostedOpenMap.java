@@ -268,9 +268,23 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 			BucketListOpen<OBNode> jSet = table[j][hj];
 			
 			if(iSet.remove(first.item, first.key) != null){
+				((OpenMapThread)Thread.currentThread()).tableOps[i][hi]--;
 				if(tableLocal[j][hj].size.get() + ((OpenMapThread)Thread.currentThread()).tableOps[j][hj] < THRESHOLD ){
-					jSet.add(first.item, first.key);
+					if(jSet.add(first.item, first.key, first.value))
+						((OpenMapThread)Thread.currentThread()).tableOps[j][hj]++;
 					return true;
+				}
+				else if(tableLocal[j][hj].size.get() + ((OpenMapThread)Thread.currentThread()).tableOps[j][hj] < PROBE_SIZE){
+					if(jSet.add(first.item, first.key, first.value))
+						((OpenMapThread)Thread.currentThread()).tableOps[j][hj]++;
+					i = 1 - i;
+					hi = hj;
+					j = 1 - j;
+				}
+				else{
+					if(iSet.add(first.item, first.key, first.value))
+						((OpenMapThread)Thread.currentThread()).tableOps[i][hi]++;
+					return false;
 				}
 			}
 			else if(tableLocal[i][hi].size.get() + ((OpenMapThread)Thread.currentThread()).tableOps[i][hi] >= THRESHOLD){
@@ -278,10 +292,6 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 			}
 			else
 				return true;
-			
-			
-			
-			
 		}
 		
 		return false;
