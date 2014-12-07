@@ -56,7 +56,7 @@ public class BucketListOpen<T>{
 				key = OptimisticBoostedOpenMap.hash1(bucketIndex);
 			}
 				
-			return Integer.reverse(key & MASK) >>> 1;
+			return Integer.reverse(key & MASK);
 		}
 		
 		public boolean contains(int item, int itemKey){
@@ -190,9 +190,9 @@ public class BucketListOpen<T>{
 			
 			OBNode toReturn = head.next;
 			
-			if(toReturn.key == makeSentinelKey(parentHash,toReturn.item))
-				return null;
-			else
+			//if(toReturn.key == makeSentinelKey(parentHash,toReturn.item))
+			//	return null;
+			//else
 				return toReturn;
 			
 		}
