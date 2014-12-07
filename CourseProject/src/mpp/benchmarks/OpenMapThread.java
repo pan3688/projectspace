@@ -51,5 +51,6 @@ public class OpenMapThread extends BenchmarkThread {
 	public BucketListOpen<OBNode>[][] tableLocal;
 	public int[][] tableOps;
 	public int initialCapacity;
+	public boolean resize = false;
 			
 }

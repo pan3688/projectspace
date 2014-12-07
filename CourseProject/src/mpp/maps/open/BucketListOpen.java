@@ -89,12 +89,14 @@ public class BucketListOpen<T>{
 
 			pred = head;
 			curr = pred.next;
+			int pos = 0;
 			while(curr.key <= key && curr.item != item){
 				pred = curr;
 				curr = curr.next;
+				pos++;
 			}
 			
-			return new Window(pred,curr);
+			return new Window(pred,curr,pos);
 		}
 		
 		public boolean add(int item, int itemKey, Object value){
@@ -109,7 +111,7 @@ public class BucketListOpen<T>{
 			if(curr.item == item && !curr.marked)
 				return false;
 			else{
-				readset.add(new ReadSetEntry(pred, curr, false));
+				readset.add(new ReadSetEntry(pred, curr, true));
 				writeset.put(curr.item, new WriteSetEntry(pred, curr, OptimisticBoostedOpenMap.PUT, key, item, value, parentHash));
 				return true;
 			}
@@ -125,7 +127,7 @@ public class BucketListOpen<T>{
 			OBNode pred = window.pred;
 			OBNode curr = window.curr;
 			if(curr.item == item && !curr.marked){
-				readset.add(new ReadSetEntry(pred, curr, false));
+				readset.add(new ReadSetEntry(pred, curr, true));
 				writeset.put(curr.item, new WriteSetEntry(pred, curr, OptimisticBoostedOpenMap.REMOVE, curr.key, curr.item, curr.value, parentHash));
 				return curr.value;
 			}
@@ -153,10 +155,11 @@ public class BucketListOpen<T>{
 				Window window = find(head, key, bucketIndex);
 				OBNode pred = window.pred;
 				OBNode curr = window.curr;
+				int pos = window.position;
 
 				if(curr.key == key && !curr.marked){
 					return new BucketListOpen<T>(curr, i);
-				}else{
+				}else{ 
 
 					OBNode myNode = null;
 					try{
@@ -169,7 +172,10 @@ public class BucketListOpen<T>{
 							myNode = new OBNode(key, bucketIndex, null);
 							myNode.next = curr;
 							pred.next = myNode;
-							return new BucketListOpen<T>(myNode, i);
+							BucketListOpen<T> newBucket = new BucketListOpen<T>(myNode, i); 
+							newBucket.size.set(this.size.get() - pos);
+							this.size.set(pos);
+							return newBucket;
 						}
 						else
 							continue;

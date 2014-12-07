@@ -7,6 +7,9 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import mpp.benchmarks.OpenMapThread;
 import mpp.exception.AbortedException;
@@ -23,6 +26,10 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 	static final int GET = 2;
 	static final int CONTAINS = 3;
 	static final int REMOVE = 4;
+
+	private final ReadWriteLock lock = new ReentrantReadWriteLock();
+	private final Lock read = lock.readLock();
+	private final Lock write = lock.writeLock();
 	
 	public volatile BucketListOpen<OBNode>[][] table;
 	public AtomicInteger capacity;
@@ -131,6 +138,10 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 			}
 		}
 		
+		ArrayList<ReadSetEntry> readset = ((OpenMapThread)Thread.currentThread()).list_readset;
+		
+		if(!postValidate(readset))
+			throw AbortedException.abortedException;
 		
 		if(type == PUT)
 			return addToTable(item, v);
@@ -138,57 +149,51 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 			return containsInTable(item);
 		else if(type == GET)
 			return getFromTable(item);
-		else if(type == REMOVE)
+		else
 			return removeFromTable(item);
-		
-		
-		ArrayList<ReadSetEntry> readset = ((OpenMapThread)Thread.currentThread()).list_readset;
-		
-		int myBucket = new Integer(myNode.key).hashCode() % bucketSize.get();
-		BucketList<OBNode> b = getBucketList(myBucket);						
-		
-		Window window = b.find(b.head, myNode.key);
-		
-		OBNode pred = window.pred;
-		OBNode curr = window.curr;
-		
-		int currKey = curr.key;
-		boolean currMarked = curr.marked;
-		
-		if(!postValidate(readset))
-			throw AbortedException.abortedException;
-		
-		if(currKey == myNode.key && !currMarked){
-			if(type == CONTAINS){
-				readset.add(new ReadSetEntry(pred, curr, false));
-				return true;
-			}else if(type == PUT){
-				readset.add(new ReadSetEntry(pred, curr, false));
-				return false;
-			}else{
-				readset.add(new ReadSetEntry(pred, curr, true));
-				writeset.put(myNode.key, new WriteSetEntry(pred, curr, REMOVE, myNode.key,myNode.value));
-				return true;
-			}
-		}else{
-			readset.add(new ReadSetEntry(pred, curr, true));
-			if(type == CONTAINS || type == REMOVE)
-				return false;
-			else{
-				writeset.put(myNode.key, new WriteSetEntry(pred, curr, PUT, myNode.key,myNode.value));
-				return true;
-			}
-		}
+			
 	}
 	
 	private boolean addToTable(int item, Object v){
 		
+		BucketListOpen<OBNode>[][] tableLocal = ((OpenMapThread) Thread.currentThread()).tableLocal;
 		int tLocalCapacity = ((OpenMapThread) Thread.currentThread()).initialCapacity;
-	
+		
+		int i = -1, h = -1;
 		int h0 = hash0(item) % tLocalCapacity;
 		int h1 = hash1(item) % tLocalCapacity;
 	
+		if(containsInTable(item))
+			return false;
+		
 		BucketListOpen<OBNode> b0 = getBucketList(0, h0);	
+		BucketListOpen<OBNode> b1 = getBucketList(1, h1);
+		
+		if(tableLocal[0][h0].size.get() + ((OpenMapThread)Thread.currentThread()).tableOps[0][h0] < THRESHOLD ){
+			if(b0.add(item, hash0(item), v))
+				((OpenMapThread)Thread.currentThread()).tableOps[0][h0]++;
+			return true;
+		}
+		else if(tableLocal[1][h1].size.get() + ((OpenMapThread)Thread.currentThread()).tableOps[1][h1] < THRESHOLD ){
+			if(b1.add(item, hash0(item), v))
+				((OpenMapThread)Thread.currentThread()).tableOps[1][h1]++;
+			return true;
+		}
+		else if(tableLocal[0][h0].size.get() + ((OpenMapThread)Thread.currentThread()).tableOps[0][h0] < PROBE_SIZE ){
+			if(b0.add(item, hash0(item), v))
+				((OpenMapThread)Thread.currentThread()).tableOps[0][h0]++;
+			i = 0; h = h0;
+		}
+		else if(tableLocal[1][h1].size.get() + ((OpenMapThread)Thread.currentThread()).tableOps[1][h1] < PROBE_SIZE ){
+			if(b1.add(item, hash0(item), v))
+				((OpenMapThread)Thread.currentThread()).tableOps[1][h1]++;
+			i = 1; h = h1;
+		}
+		else
+			((OpenMapThread)Thread.currentThread()).resize = true;
+		
+		if(!relocate(i,h))
+			((OpenMapThread)Thread.currentThread()).resize = true;
 		
 		return true;
 	}
@@ -257,9 +262,8 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		for(int round = 0; round < LIMIT; round++){
 			BucketListOpen<OBNode> iSet = table[i][hi];
 			OBNode first;
-			if((first = iSet.getFirst()) != null)
-				((OpenMapThread)Thread.currentThread()).tableOps[i][hi]--;
-			
+			first = iSet.getFirst();
+				
 			switch(i){
 			case 0: hj = hash1(first.item) % tLocalCapacity; break;
 			case 1: hj = hash0(first.item) % tLocalCapacity; break;
@@ -298,6 +302,24 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 	}
 	
 	private boolean postValidate(ArrayList<ReadSetEntry> readset) {
+		
+		if(((OpenMapThread)Thread.currentThread()).initialCapacity != capacity.get())
+			return false;
+		
+		//check if any of the individual bucket sizes has gone over threshold
+		BucketListOpen<OBNode>[][] tableLocal = ((OpenMapThread) Thread.currentThread()).tableLocal;
+		for(int i = 0; i < 2; i++){
+			for(int j = 0; j < capacity.get(); i++){
+				if(tableLocal[i][j].size.get() != table[i][j].size.get()){
+					int bucketOps = ((OpenMapThread) Thread.currentThread()).tableOps[i][j];
+					if(tableLocal[i][j].size.get() + bucketOps <= THRESHOLD && table[i][j].size.get() + bucketOps <= THRESHOLD )
+						tableLocal[i][j].size.set(table[i][j].size.get());
+					else
+						return false;
+				}
+			}
+		}
+		
 		ReadSetEntry entry;	
 		int size = readset.size();
 
@@ -412,7 +434,9 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		
 		if(!commitValidate(t.list_readset))
 			throw AbortedException.abortedException;
-
+		
+		read.lock();
+		
 		// Publish write-set
 		iterator = write_set.iterator();
 		while(iterator.hasNext())
@@ -444,7 +468,27 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 			}			
 		}
 		
+		//Now that locks are acquired, update bucketSize for each bucket
+		//If any of it goes over probe_size, set resize flag to true
+		int oldSize, localOps;
+		((OpenMapThread) Thread.currentThread()).resize = false;
+		for(int i = 0; i < 2; i++){
+			for(int j = 0; j < capacity.get(); j++){
+				localOps = ((OpenMapThread) Thread.currentThread()).tableOps[i][j];
+				while(true){
+					oldSize = table[i][j].size.get();
+					if(table[i][j].size.compareAndSet(oldSize, oldSize + localOps)){
+						if(table[i][j].size.get() > PROBE_SIZE)
+							((OpenMapThread) Thread.currentThread()).resize = true;
+						break;
+					}
+				}
+			}
+		}
+		
 		// unlock
+		
+		read.unlock();
 		iterator = write_set.iterator();
 		while(iterator.hasNext())
 		{
@@ -468,6 +512,14 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		// clear read- and write- sets
 		read_set.clear();
 		write_set.clear();
+		
+		
+		if(((OpenMapThread) Thread.currentThread()).resize){
+			write.lock();
+			if(capacity.get() == ((OpenMapThread) Thread.currentThread()).initialCapacity)
+				resize();
+			write.unlock();
+		}
 	}
 
 	@Override
@@ -489,10 +541,13 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 	}
 	
 	private void initializeBucket(int i, int myBucket){
+		
 		int parent = getParent(myBucket);
 		if(table[i][parent] == null)
 			initializeBucket(i,parent);
 		BucketListOpen<OBNode> b = table[i][parent].getSentinel(i, myBucket);
+		((OpenMapThread) Thread.currentThread()).tableLocal[i][parent].size.set(table[i][parent].size.get());
+		((OpenMapThread) Thread.currentThread()).tableLocal[i][myBucket].size.set(b.size.get());
 		if(b != null)
 			table[i][myBucket] = b;
 	}
@@ -504,6 +559,21 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		}while(parent > myBucket);
 		parent = myBucket - parent;
 		return parent;
+	}
+	
+	@SuppressWarnings("unchecked")
+	private void resize(){
+		int oldSize = capacity.get();
+		capacity.compareAndSet(oldSize, 2 * oldSize);
+		
+		BucketListOpen<OBNode>[][] oldTable = table;
+		table = new BucketListOpen[2][capacity.get()];
+		
+		for(int i = 0; i < 2; i++){
+			for(int j = 0; j < oldSize; j++){
+				table[i][j] = oldTable[i][j];
+			}
+		}
 	}
 	
 	public void begin(){
