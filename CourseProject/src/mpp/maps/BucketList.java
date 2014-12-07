@@ -41,8 +41,10 @@ public class BucketList<T>{
 			retry:while(true){
 				pred = head;
 				curr = pred.next.getReference();
+				
 				while(true){
-					succ = curr.next.get(marked);
+					if(curr.next != null)
+						succ = curr.next.get(marked);
 					while(marked[0]){
 						snip = pred.next.compareAndSet(curr, succ, false, false);
 						if(!snip) continue retry;
@@ -121,7 +123,9 @@ public class BucketList<T>{
 						return new BucketList<T>(curr);
 					}else{
 						OBNode myNode = new OBNode(key, null);
+						
 						myNode.next.set(pred.next.getReference(), false);
+						
 						splice = pred.next.compareAndSet(curr, myNode, false, false);
 						
 						if(splice)

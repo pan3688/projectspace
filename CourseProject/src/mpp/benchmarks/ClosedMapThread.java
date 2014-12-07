@@ -46,7 +46,7 @@ public class ClosedMapThread extends BenchmarkThread {
 			);
 	public ArrayList<OptimisticBoostedClosedMap.ReadSetEntry> list_readset = new ArrayList<OptimisticBoostedClosedMap.ReadSetEntry>();
 	
-	public ClosedMapThread(OptimisticBoostedClosedMap map,int range,int rate,int ops) {
+	public ClosedMapThread(IntMap map,int range,int rate,int ops) {
 		m_map = map;
 		m_range = range;
 		m_rate = rate;
@@ -86,6 +86,7 @@ public class ClosedMapThread extends BenchmarkThread {
 						if (m_write) {
 							if(m_map.put(addItems[c],addItems[c] +""))
 							{
+//								System.out.println("Put succeeded....");
 //								if(initial_adds == MAX_OPERATIONS_PER_TRANSACTION)
 									m_write = false;
 //								else

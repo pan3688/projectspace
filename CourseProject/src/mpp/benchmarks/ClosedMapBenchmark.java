@@ -76,14 +76,27 @@ public class ClosedMapBenchmark implements Benchmark {
 
 	@Override
 	public BenchmarkThread createThread(int i, int nb) {
-		// TODO Auto-generated method stub
-		return null;
+		return new ClosedMapThread(m_map, m_range, m_rate, m_ops);
 	}
 
 	@Override
 	public String getStats(BenchmarkThread[] threads) {
-		// TODO Auto-generated method stub
-		return null;
+		int add = 0;
+		int remove = 0;
+		int succ_add = 0;
+		int succ_remove = 0;
+		int contains = 0;
+		int aborts = 0;
+		for (int i = 0; i < threads.length; i++) {
+			add += ((ClosedMapThread) threads[i]).m_nb_add;
+			remove += ((ClosedMapThread) threads[i]).m_nb_remove;
+			succ_add += ((ClosedMapThread) threads[i]).m_nb_succ_add;
+			succ_remove += ((ClosedMapThread) threads[i]).m_nb_succ_remove;
+			contains += ((ClosedMapThread) threads[i]).m_nb_contains;
+			aborts += ((ClosedMapThread) threads[i]).m_nb_aborts;
+		}
+		return "A=" + add + ", R=" + remove + ", SA=" + succ_add + ", SR="
+				+ succ_remove + ", C=" + contains + ", Aborts=" + aborts;
 	}
 
 }

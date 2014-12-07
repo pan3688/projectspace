@@ -26,7 +26,7 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 		// TODO Auto-generated constructor stub
 		bucket = new BucketList[capacity];
 		bucket[0] = new BucketList<>();
-		bucketSize = new AtomicInteger(2);
+		bucketSize = new AtomicInteger(capacity);
 		setSize = new AtomicInteger(0);
 	}
 	
@@ -86,12 +86,13 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 			if(entry.operation == PUT){
 				if(type == PUT)
 					return false;
-				else if(type == CONTAINS || type == GET){
-					return entry.value;		//returning the mapped object
-//					return true;
-				}else{
-					writeset.remove(myNode.key);
+				else if(type == CONTAINS){
+//					return entry.value;		//returning the mapped object
 					return true;
+				}else{
+					if(type == REMOVE)
+						writeset.remove(myNode.key);
+					return entry.value;
 				}
 			}else{
 				if( type == CONTAINS)
@@ -112,13 +113,16 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 		int myBucket = new Integer(myNode.key).hashCode() % bucketSize.get();
 		BucketList<OBNode> b = getBucketList(myBucket);						
 		
-		Window window = b.find(b.head, myNode.key);
+		Window window = b.find(b.head, b.makeOrdinaryKey(myNode.key));
 		
 		OBNode pred = window.pred;
 		OBNode curr = window.curr;
 		
 		int currKey = curr.key;
-		boolean currMarked = curr.marked;
+		
+		boolean[] marked = {false};
+		OBNode succ = curr.next.get(marked);
+		boolean currMarked = marked[0];
 		
 		if(!postValidate(readset))
 			throw AbortedException.abortedException;
@@ -168,14 +172,23 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 		
 		// check the values of the nodes 
 		// and also check that nodes are not currently locked
+		
+		boolean[] marked = {false};
+		
 		for(int i=0; i<size; i++)
 		{
 			entry = readset.get(i);
-			if((currLocks[i] & 1) == 1 || entry.curr.marked)
+			
+			OBNode succ = entry.curr.next.get(marked);
+			
+			if((currLocks[i] & 1) == 1 || marked[0])
 				return false;
+			
+			OBNode p_succ = entry.pred.next.get(marked);
+			
 			if(entry.checkLink)
 			{
-				if((predLocks[i] & 1) == 1 || entry.pred.marked || entry.curr != entry.pred.next.getReference()) 
+				if((predLocks[i] & 1) == 1 || marked[0] || entry.curr != entry.pred.next.getReference()) 
 					return false;
 			}
 		}
@@ -197,13 +210,21 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 		ReadSetEntry entry;	
 		int size = readset.size();
 
+		boolean[] marked = {false};
+		
 		// check the values of the nodes 
 		for(int i=0; i<size; i++)
 		{
 			entry = readset.get(i);
-			if(entry.curr.marked)
+			
+			OBNode succ = entry.curr.next.get(marked);
+			
+			if(marked[0])
 				return false;
-			if(entry.checkLink && (entry.pred.marked || entry.curr != entry.pred.next.getReference()))
+			
+			OBNode p_succ = entry.pred.next.get(marked);
+			
+			if(entry.checkLink && (marked[0] || entry.curr != entry.pred.next.getReference()))
 				return false;
 		}
 		return true;
@@ -287,7 +308,7 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 				newNodeOrVictim.next.set(curr,false);
 				pred.next.set(newNodeOrVictim,false);
 			}else{
-				curr.marked = true;
+				curr.next.attemptMark(curr.next.getReference(), true);
 				pred.next = entry.curr.next;
 			}			
 		}
@@ -350,7 +371,6 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 
 	@Override
 	public boolean nonTransactionalPut(Integer k, Object v) {
-		// TODO Auto-generated method stub
 		int myBucket = k.hashCode() % bucketSize.get();
 		
 		BucketList<OBNode> b = getBucketList(myBucket);
@@ -358,7 +378,7 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 		if(!b.add(new OBNode(k, v)))
 			return false;
 		
-		resize();
+//		resize();
 		
 		return true;
 	}
@@ -366,6 +386,8 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 	private BucketList<OBNode> getBucketList(int myBucket){
 		if(bucket[myBucket] == null)
 			initializeBucket(myBucket);
+		
+//		System.out.println(bucket[myBucket].head.next.getReference().value);
 		
 		return bucket[myBucket];
 	}
