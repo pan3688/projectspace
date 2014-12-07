@@ -6,7 +6,7 @@ import java.util.Random;
 import java.util.TreeMap;
 
 import mpp.maps.IntMap;
-import mpp.maps.OBNode;
+import mpp.maps.open.OBNode;
 import mpp.maps.OptimisticBoostedClosedMap;
 import mpp.maps.open.BucketListOpen;
 import mpp.maps.open.OptimisticBoostedOpenMap;

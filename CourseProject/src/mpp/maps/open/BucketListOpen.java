@@ -1,11 +1,13 @@
 package mpp.maps.open;
 
 import java.util.ArrayList;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicMarkableReference;
 
 import mpp.benchmarks.OpenMapThread;
 import mpp.maps.open.OptimisticBoostedOpenMap.ReadSetEntry;
+import mpp.maps.open.OptimisticBoostedOpenMap.WriteSetEntry;
 
 public class BucketListOpen<T>{
 		
@@ -13,7 +15,7 @@ public class BucketListOpen<T>{
 		public static final int MASK = 0x00FFFFFF;
 		public OBNode head;
 		public OBNode tail;
-		public AtomicInteger bucketSize;
+		public AtomicInteger size;
 		public final int parentHash;
 		
 		public BucketListOpen(int hash){
@@ -49,15 +51,15 @@ public class BucketListOpen<T>{
 			return Integer.reverse(key & MASK);
 		}
 		
-		public boolean contains(int itemKey){
+		public boolean contains(int item, int itemKey){
 			ArrayList<ReadSetEntry> readset = ((OpenMapThread)Thread.currentThread()).list_readset;
 			
 			//convert itemKey to split order key before searching
 			int key = makeOrdinaryKey(itemKey);
-			Window window = find(head,key);
+			Window window = find(head, key, item);
 			OBNode pred = window.pred;
 			OBNode curr = window.curr;
-			if(curr.key == key && !curr.marked){
+			if(curr.item == item && !curr.marked){
 				readset.add(new ReadSetEntry(pred, curr, false));
 				return true;
 			}
@@ -65,15 +67,15 @@ public class BucketListOpen<T>{
 				return false;
 		}
 		
-		public Object get(int itemKey){
+		public Object get(int item, int itemKey){
 			ArrayList<ReadSetEntry> readset = ((OpenMapThread)Thread.currentThread()).list_readset;
 			
 			//convert itemKey to split order key before searching
 			int key = makeOrdinaryKey(itemKey);
-			Window window = find(head,key);
+			Window window = find(head, key, item);
 			OBNode pred = window.pred;
 			OBNode curr = window.curr;
-			if(curr.key == key && !curr.marked){
+			if(curr.item == item && !curr.marked){
 				readset.add(new ReadSetEntry(pred, curr, false));
 				return curr.value;
 			}
@@ -82,12 +84,12 @@ public class BucketListOpen<T>{
 		}		
 		
 		
-		public Window find(OBNode head,int key){
+		public Window find(OBNode head, int key, int item){
 			OBNode pred = null,curr = null, succ = null;
 
 			pred = head;
 			curr = pred.next;
-			while(curr.key < key){
+			while(curr.key <= key && curr.item != item){
 				pred = curr;
 				curr = curr.next;
 			}
@@ -116,60 +118,72 @@ public class BucketListOpen<T>{
 			}
 		}
 		
-		public boolean remove(int itemKey){
+		public Object remove(int item, int itemKey){
 			
 			ArrayList<ReadSetEntry> readset = ((OpenMapThread)Thread.currentThread()).list_readset;
+			TreeMap<Integer, WriteSetEntry> writeset = ((OpenMapThread) Thread.currentThread()).list_writeset;
 			
 			int key = makeOrdinaryKey(itemKey);
-			Window window = find(head,key);
+			Window window = find(head, key, item);
 			OBNode pred = window.pred;
 			OBNode curr = window.curr;
-			if(curr.key == key && !curr.marked){
+			if(curr.item == item && !curr.marked){
 				readset.add(new ReadSetEntry(pred, curr, false));
-				return true;
+				writeset.put(curr.item, new WriteSetEntry(pred, curr, OptimisticBoostedOpenMap.REMOVE, itemKey, curr.item, curr.value, parentHash));
+				return curr.value;
 			}
 			else
-				return false;
+				return null;
+		}
+		
+		public OBNode getFirst(){
+			
+			OBNode toReturn = head.next;
+			
+			if(toReturn.key == makeSentinelKey(parentHash,toReturn.item))
+				return null;
+			else
+				return toReturn;
+			
 		}
 		
 		//To add sentinel directly to the object. No entries will be added to read/write sets
 		public BucketListOpen<T> getSentinel(int i, int bucketIndex){
-			
+
 			int key = makeSentinelKey(i, bucketIndex);
-			boolean splice ;
-			
+		
 			while(true){
-				
-				Window window = find(head,key);
+				Window window = find(head, key, bucketIndex);
 				OBNode pred = window.pred;
 				OBNode curr = window.curr;
-				
-				try{
-					pred.lock.getAndIncrement();
-					curr.lock.getAndIncrement();
-					pred.lockHolder = Thread.currentThread().getId();
-					curr.lockHolder = Thread.currentThread().getId();
-					
-				
-					if(curr.key == key && !curr.marked){
-						return new BucketListOpen<T>(curr, i);
-					}else{
-						OBNode myNode = new OBNode(key, bucketIndex, null);
-						myNode.next.set(pred.next.getReference(), false);
-						splice = pred.next.compareAndSet(curr, myNode, false, false);
 
-						if(splice)
+				if(curr.key == key && !curr.marked){
+					return new BucketListOpen<T>(curr, i);
+				}else{
+
+					OBNode myNode = null;
+					try{
+						pred.lock.getAndIncrement();
+						curr.lock.getAndIncrement();
+						pred.lockHolder = Thread.currentThread().getId();
+						curr.lockHolder = Thread.currentThread().getId();
+
+						if(!pred.marked && !curr.marked && pred.next == curr){
+							myNode = new OBNode(key, bucketIndex, null);
+							myNode.next = curr;
+							pred.next = myNode;
 							return new BucketListOpen<T>(myNode, i);
+						}
 						else
 							continue;
 					}
-				}finally{
+					finally{
 						pred.lock.getAndDecrement();
 						curr.lock.getAndDecrement();
 						pred.lockHolder = -1;
 						curr.lockHolder = -1;
 					}
 				}
-				
 			}
+		}
 	}
