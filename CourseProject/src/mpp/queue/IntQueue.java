@@ -6,9 +6,9 @@ public interface IntQueue {
 
 	public boolean add(int value) throws AbortedException;
 	
-	public int remove() throws AbortedException;
+	public int dequeue() throws AbortedException;
 	
-	public int element() throws AbortedException;
+	public int head() throws AbortedException;
 	
 	public void commit() throws AbortedException;
 	

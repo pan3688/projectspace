@@ -53,7 +53,7 @@ public class OptimisticBoostedQueue implements IntQueue {
 	}
 
 	@Override
-	public int remove() throws AbortedException {
+	public int dequeue() throws AbortedException {
 		OBNode myNode = null;
 		
 		try{
@@ -85,7 +85,7 @@ public class OptimisticBoostedQueue implements IntQueue {
 		return myNode.item;
 	}
 	@Override
-	public int element() throws AbortedException {
+	public int head() throws AbortedException {
 		if(head.next != tail)
 			return head.next.item;
 		else

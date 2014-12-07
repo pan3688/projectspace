@@ -75,7 +75,7 @@ public class QueueThread extends BenchmarkThread {
 									nb_succ_add++;
 							}
 						} else {
-							if(m_queue.remove() != -1)
+							if(m_queue.dequeue() != -1)
 							{
 								result = true;
 								m_write = true;
@@ -88,7 +88,7 @@ public class QueueThread extends BenchmarkThread {
 							}
 						}
 					} else {
-						m_queue.element();
+						m_queue.head();
 						if (phase == Benchmark.TEST_PHASE)
 							nb_contains++;
 					}
