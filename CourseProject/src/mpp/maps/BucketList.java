@@ -20,7 +20,7 @@ public class BucketList<T>{
 		
 		public int makeOrdinaryKey(Integer i){
 			int code = i.hashCode() & MASK;
-			return Integer.reverse(code | HI_MASK);
+			return Math.abs(Integer.reverse(code | HI_MASK));
 		}
 		
 		private int makeSentinelKey(int key){
@@ -59,6 +59,7 @@ public class BucketList<T>{
 				}
 			}
 		}
+		
 		public boolean add(OBNode myNode){
 			int key = myNode.key;
 			

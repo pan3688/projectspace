@@ -110,7 +110,12 @@ public class Driver {
 
 		int steps = 0;
 		for (int i = 0; i < bt.length; i++)
-			steps += bt[i].getSteps();
+			steps += bt
+			
+		
+			
+			
+			[i].getSteps();
 
 		System.out.println("RESULTS:\n");
 		System.out.println("  Warmup duration (ms) = " + (wend - wstart));

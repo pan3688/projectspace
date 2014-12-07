@@ -4,11 +4,11 @@ import mpp.exception.AbortedException;
 
 public interface IntStack {
 
-	public boolean push(int value) throws AbortedException;
+	public boolean pushStack(int value) throws AbortedException;
 	
-	public int pop() throws AbortedException;
+	public int popStack() throws AbortedException;
 	
-	public int top() throws AbortedException;
+	public int topStack() throws AbortedException;
 	
 	public void commit() throws AbortedException;
 	
