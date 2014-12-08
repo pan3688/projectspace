@@ -63,7 +63,7 @@ public class OpenMapThread extends BenchmarkThread {
 	}
 	
 	protected void step(int phase) {
-		
+				
 		for(int c = 0; c < m_ops; c++)
 		{
 			int i = m_random.nextInt(100);
@@ -79,6 +79,8 @@ public class OpenMapThread extends BenchmarkThread {
 		
 		boolean flag = true, oldm_write = m_write;
 		
+		m_map.begin();
+		
 		while (flag) {
 			flag = false;
 			oldm_write = m_write;
@@ -93,7 +95,6 @@ public class OpenMapThread extends BenchmarkThread {
 						if (m_write) {
 							if(m_map.put(addItems[c], addItems[c] +""))
 							{
-//								System.out.println("Put succeeded....for :" + addItems[c]);
 //								if(initial_adds == MAX_OPERATIONS_PER_TRANSACTION)
 									m_write = false;
 //								else
@@ -102,8 +103,10 @@ public class OpenMapThread extends BenchmarkThread {
 								add_index++;
 								if(add_index == OpenMapBenchmark.MAX_OPERATIONS_PER_TRANSACTION)
 									add_index = 0;
-								if(phase == Benchmark.TEST_PHASE)
+								if(phase == Benchmark.TEST_PHASE){
+									System.out.println("Put succeeded....for :" + addItems[c]);
 									nb_succ_add++;
+								}
 							}
 							if (phase == Benchmark.TEST_PHASE)
 								nb_add++;
@@ -135,7 +138,7 @@ public class OpenMapThread extends BenchmarkThread {
 //					e.printStackTrace();
 //					throw e;
 //				}
-				
+				//System.out.println("Thread success:"+ Thread.currentThread().getId());
 				m_nb_add += nb_add;
 				m_nb_remove += nb_remove;
 				m_nb_contains += nb_contains;
@@ -145,7 +148,7 @@ public class OpenMapThread extends BenchmarkThread {
 //				System.out.println("COMMIT: oldaddindex=" + old_add_index + " addindex=" + add_index + " oldremoveindex=" + old_remove_index + " removeindex=" + remove_index);
 				
 			} catch (AbortedException e) {
-				
+				//System.out.println("Thread Aborted:"+ Thread.currentThread().getId());
 				flag = true;
 				for(int i=0; i<OpenMapBenchmark.MAX_OPERATIONS_PER_TRANSACTION;i++)
 					m_last[i] = oldm_last[i];

@@ -10,7 +10,7 @@ public class OptimisticBoostedStack implements IntStack {
 	
 	public class OBNode {
 		int item;
-		public OBNode next;
+		public volatile OBNode next;
 		
 		private OBNode(int item) {
 			this.item = item;
@@ -18,7 +18,7 @@ public class OptimisticBoostedStack implements IntStack {
 		}
 	}
 	
-	OBNode top = null;
+	volatile OBNode top = null;
 	private final Lock lock = new ReentrantLock();
 	
 	public boolean pushStack(int value) throws AbortedException{
@@ -46,6 +46,7 @@ public class OptimisticBoostedStack implements IntStack {
 			return true;
 		}
 		catch(Exception e){
+			System.out.println("Exception!");
 			throw AbortedException.abortedException;
 		}
 	}
@@ -62,7 +63,7 @@ public class OptimisticBoostedStack implements IntStack {
 				t.localAdds.remove(last);
 				return toReturn.item;
 			}
-			else{
+			else if(!t.iswriter){
 				lock.lock();
 				t.iswriter = true;
 			}
@@ -78,6 +79,7 @@ public class OptimisticBoostedStack implements IntStack {
 			
 		}
 		catch(Exception e){
+			System.out.println("Exception!");
 			throw AbortedException.abortedException;
 		}
 		
@@ -102,6 +104,7 @@ public class OptimisticBoostedStack implements IntStack {
 				return top.item;
 		}
 		catch(Exception e){
+			System.out.println("Exception!");
 			throw AbortedException.abortedException;
 		}
 	}
@@ -127,6 +130,7 @@ public class OptimisticBoostedStack implements IntStack {
 			
 				
 			lock.unlock();
+			t.iswriter = false;
 		}
 		t.localAdds.clear();
 	}
@@ -150,5 +154,5 @@ public class OptimisticBoostedStack implements IntStack {
 		
 		return true;
 	}
-
+	
 }

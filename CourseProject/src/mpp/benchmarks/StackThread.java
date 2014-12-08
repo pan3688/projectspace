@@ -43,7 +43,7 @@ public class StackThread extends BenchmarkThread{
 		m_random = new Random();
 	}
 	
-	protected void step(int phase) {
+	protected void step_mixed(int phase) {
 		
 		for(int c = 0; c < m_ops; c++)
 			executionItems[c] = m_random.nextInt(m_range);
@@ -103,6 +103,7 @@ public class StackThread extends BenchmarkThread{
 				m_nb_contains += nb_contains;
 //				m_write = !m_write;
 			} catch (AbortedException e) {
+				System.out.println("Aborted");
 				flag = true;
 				m_last = oldm_last;
 				m_write = oldm_write;
@@ -112,7 +113,7 @@ public class StackThread extends BenchmarkThread{
 		}
 	}
 	
-	protected void step_mixed(int phase) {
+	protected void step(int phase) {
 		
 		for(int c = 0; c < m_ops; c++)
 		{
@@ -145,7 +146,7 @@ public class StackThread extends BenchmarkThread{
 									nb_succ_add++;
 							}
 						} else {
-							if(m_stack.popStack() != -1)
+							if(m_stack.popStack() != Integer.MIN_VALUE)
 								m_write = true;
 							if (phase == Benchmark.TEST_PHASE)
 							{

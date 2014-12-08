@@ -13,7 +13,7 @@ public class OpenMapBenchmark implements Benchmark {
 	int m_ops = 1;
 	int nb_threads = 1;
 	int capacity = 4;
-	final static int MAX_OPERATIONS_PER_TRANSACTION = 10;
+	final static int MAX_OPERATIONS_PER_TRANSACTION = 5;
 	
 	@Override
 	public void init(String[] args) {

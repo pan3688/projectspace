@@ -274,7 +274,7 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		BucketListOpen<OBNode>[][] tableLocal = ((OpenMapThread) Thread.currentThread()).tableLocal;
 		
 		int hj = 0;
-		int j = i-1;
+		int j = 1 - i;
 		for(int round = 0; round < LIMIT; round++){
 			BucketListOpen<OBNode> iSet = table[i][hi];
 			OBNode first;
@@ -325,7 +325,7 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		//check if any of the individual bucket sizes has gone over threshold
 		BucketListOpen<OBNode>[][] tableLocal = ((OpenMapThread) Thread.currentThread()).tableLocal;
 		for(int i = 0; i < 2; i++){
-			for(int j = 0; j < capacity.get(); i++){
+			for(int j = 0; j < capacity.get(); j++){
 				if(tableLocal[i][j].size.get() != table[i][j].size.get()){
 					int bucketOps = ((OpenMapThread) Thread.currentThread()).tableOps[i][j];
 					if(tableLocal[i][j].size.get() + bucketOps <= THRESHOLD && table[i][j].size.get() + bucketOps <= THRESHOLD )
@@ -447,6 +447,8 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 			}else
 				throw AbortedException.abortedException;
 		}
+		
+		//System.out.println("Lock success");
 		
 		if(!commitValidate(t.list_readset))
 			throw AbortedException.abortedException;
@@ -572,7 +574,7 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 	public boolean nonTransactionalPut(Integer item, Object v) {
 		
 		if(addNonTransactional(item, v)){
-			System.out.println(item + "added");
+			//System.out.println(item + "added");
 			return true;
 		}
 		else
