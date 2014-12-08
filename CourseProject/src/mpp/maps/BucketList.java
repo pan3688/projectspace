@@ -5,66 +5,55 @@ import java.util.concurrent.atomic.AtomicMarkableReference;
 public class BucketList<T>{
 		public static final int HI_MASK = 0x80000000;
 		public static final int MASK = 0x00FFFFFF;
+		public static final int ONE = 0x00000001;
 		public OBNode head;
 		public OBNode tail;
 		
 		public BucketList(){
-			head = new OBNode(0,null);
-			tail = new OBNode(Integer.MAX_VALUE,null);
-			head.next = new AtomicMarkableReference<OBNode>(tail, false);
+			int key = makeSentinelKey(0);
+			head = new OBNode(key, 0, null);
+			tail = new OBNode(Integer.MAX_VALUE, Integer.MAX_VALUE, null);
+			head.next = tail;
 		}
 		
 		public BucketList(OBNode myHead){
 			head = myHead;
 		}
 		
-		public int makeOrdinaryKey(Integer i){
-			int code = i.hashCode() & MASK;
-			return Math.abs(Integer.reverse(code | HI_MASK));
+		public static int makeOrdinaryKey(Integer i){
+			/*int code = i.hashCode() & MASK;
+			return Math.abs(Integer.reverse(code | HI_MASK));*/
+			
+			int code = i & MASK;
+			int rev = Integer.reverse(code);
+			code = rev >>> 1;
+			return (code | ONE);
 		}
 		
 		private int makeSentinelKey(int key){
 			return Integer.reverse(key & MASK);
 		}
 		
-		public boolean contains(Integer i){
-			int key = makeOrdinaryKey(i);
-			Window window = find(head,key);
-			OBNode curr = window.curr;
-			return (curr.key == key);
-		}
 		
-		public Window find(OBNode head,int key){
+		public Window find(OBNode head, int key, int item){
 			OBNode pred = null,curr = null, succ = null;
-			boolean[] marked = {false};
-			boolean snip;
-			retry:while(true){
-				pred = head;
-				curr = pred.next.getReference();
-				
-				while(true){
-					if(curr.next != null)
-						succ = curr.next.get(marked);
-					while(marked[0]){
-						snip = pred.next.compareAndSet(curr, succ, false, false);
-						if(!snip) continue retry;
-						curr = succ;
-						succ = curr.next.get(marked);
-					}
-					if(curr.key >= key)
-						return new Window(pred,curr);
-					
-					pred = curr;
-					curr = succ;
-				}
+
+			pred = head;
+			curr = pred.next;
+			while(curr.key <= key && curr.item != item){
+				pred = curr;
+				curr = curr.next;
 			}
+			
+			return new Window(pred,curr);
 		}
 		
 		public boolean add(OBNode myNode){
+			
 			int key = myNode.key;
 			
 			while(true){
-				Window window = find(head,key);
+				Window window = find(head, key, myNode.item);
 				OBNode pred = window.pred;
 				OBNode curr = window.curr;
 				
@@ -72,36 +61,12 @@ public class BucketList<T>{
 					return false;
 				}else{
 					OBNode node = myNode;
-					node.next = new AtomicMarkableReference<OBNode>(curr, false);
-					
-					if(pred.next.compareAndSet(curr, node, false, false)){
-						return true;
-					}
-				}
-			}
-		}
-		
-		/*public boolean remove(OBNode myNode){
-			int key = myNode.key;
-			
-			boolean snip;
-			
-			while(true){
-				Window window = find(head,key);
-				OBNode pred = window.pred;
-				OBNode curr = window.curr;
-				if(curr.key != key){
-					return false;
-				}else{
-					OBNode succ = curr.next.getReference();
-					snip = curr.next.compareAndSet(succ, succ, false, true);
-					if(!snip)
-						continue;
-					pred.next.compareAndSet(curr, succ, false, false);
+					node.next = curr;
+					pred.next = node;
 					return true;
 				}
 			}
-		}*/
+		}
 		
 		public BucketList<T> getSentinel(int index){
 			
@@ -110,7 +75,7 @@ public class BucketList<T>{
 			
 			while(true){
 				
-				Window window = find(head,key);
+				Window window = find(head, key, index);
 				OBNode pred = window.pred;
 				OBNode curr = window.curr;
 					
@@ -124,14 +89,12 @@ public class BucketList<T>{
 						pred.lockHolder = Thread.currentThread().getId();
 						curr.lockHolder = Thread.currentThread().getId();
 						
-						OBNode myNode = new OBNode(key, null);
-						
-						myNode.next.set(pred.next.getReference(), false);
-						
-						splice = pred.next.compareAndSet(curr, myNode, false, false);
-						
-						if(splice)
+						if(!pred.marked && !curr.marked && pred.next == curr){
+							OBNode myNode = new OBNode(key, index, null);
+							myNode.next = curr;
+							pred.next = myNode;
 							return new BucketList<T>(myNode);
+						}
 						else
 							continue;
 						

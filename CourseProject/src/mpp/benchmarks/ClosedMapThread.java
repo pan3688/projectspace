@@ -45,6 +45,7 @@ public class ClosedMapThread extends BenchmarkThread {
 			}
 			);
 	public ArrayList<OptimisticBoostedClosedMap.ReadSetEntry> list_readset = new ArrayList<OptimisticBoostedClosedMap.ReadSetEntry>();
+	public int initialCapacity;
 	
 	public ClosedMapThread(IntMap map,int range,int rate,int ops) {
 		m_map = map;
@@ -72,6 +73,7 @@ public class ClosedMapThread extends BenchmarkThread {
 		
 		boolean flag = true, oldm_write = m_write;
 		
+		m_map.begin();
 		while (flag) {
 			flag = false;
 			oldm_write = m_write;
@@ -150,4 +152,10 @@ public class ClosedMapThread extends BenchmarkThread {
 			}
 		}
 	}
+	
+	public String getStats() {
+		return "A=" + m_nb_add + ", R=" + m_nb_remove + ", SA=" + m_nb_succ_add + ", SR=" + m_nb_succ_remove + ", C=" + m_nb_contains
+				+ ", Aborts=" + m_nb_aborts;
+	}
+	
 }

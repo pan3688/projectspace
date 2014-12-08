@@ -17,8 +17,8 @@ import mpp.maps.IntMap;
 
 public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 
-	private static final int THRESHOLD = 3;
-	private static final int PROBE_SIZE = 5;
+	private static final int THRESHOLD = 5;
+	private static final int PROBE_SIZE = 10;
 	private static final int LIMIT = 10;
 
 	static final int PUT = 1;
@@ -155,6 +155,7 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 	
 	private boolean addToTable(int item, Object v){
 		
+		
 		BucketListOpen<OBNode>[][] tableLocal = ((OpenMapThread) Thread.currentThread()).tableLocal;
 		int tLocalCapacity = ((OpenMapThread) Thread.currentThread()).initialCapacity;
 		
@@ -191,8 +192,8 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		else
 			((OpenMapThread)Thread.currentThread()).resize = true;
 		
-		if(!relocate(i,h))
-			((OpenMapThread)Thread.currentThread()).resize = true;
+		/*if(!relocate(i,h))
+			((OpenMapThread)Thread.currentThread()).resize = true;*/
 		
 		return true;
 	}
@@ -204,9 +205,12 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		int h0 = hash0(item) % tLocalCapacity;
 		int h1 = hash1(item) % tLocalCapacity;
 		
-		if(table[0][h0].contains(item, hash0(item)))
+		BucketListOpen<OBNode> b0 = getBucketList(0, h0);	
+		BucketListOpen<OBNode> b1 = getBucketList(1, h1);
+		
+		if(b0.contains(item, hash0(item)))
 			return true;
-		else if(table[1][h1].contains(item, hash1(item)))
+		else if(b1.contains(item, hash1(item)))
 			return true;
 		else
 			return false;
@@ -236,11 +240,15 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		
 		int h0 = hash0(item) % tLocalCapacity;
 		int h1 = hash1(item) % tLocalCapacity;
+		
+		BucketListOpen<OBNode> b0 = getBucketList(0, h0);	
+		BucketListOpen<OBNode> b1 = getBucketList(1, h1);		
+		
 		Object toReturn;
 		
-		if((toReturn = table[0][h0].get(item, hash0(item))) != null)
+		if((toReturn = b0.get(item, hash0(item))) != null)
 			return toReturn;
-		else if((toReturn = table[1][h1].get(item, hash1(item))) != null)
+		else if((toReturn = b1.get(item, hash1(item))) != null)
 			return toReturn;
 		else
 			return null;
@@ -252,13 +260,17 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		
 		int h0 = hash0(item) % tLocalCapacity;
 		int h1 = hash1(item) % tLocalCapacity;
+
+		BucketListOpen<OBNode> b0 = getBucketList(0, h0);	
+		BucketListOpen<OBNode> b1 = getBucketList(1, h1);		
+		
 		Object toReturn;
 		
-		if((toReturn = table[0][h0].remove(item, hash0(item))) != null){
+		if((toReturn = b0.remove(item, hash0(item))) != null){
 			((OpenMapThread)Thread.currentThread()).tableOps[0][h0]--;
 			return toReturn;
 		}
-		else if((toReturn = table[1][h1].remove(item, hash1(item))) != null){
+		else if((toReturn = b1.remove(item, hash1(item))) != null){
 			((OpenMapThread)Thread.currentThread()).tableOps[1][h1]--;
 			return toReturn;
 		}
@@ -276,6 +288,8 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		int hj = 0;
 		int j = 1 - i;
 		for(int round = 0; round < LIMIT; round++){
+			
+			System.out.println("i:"+i+"hi:"+hi);
 			BucketListOpen<OBNode> iSet = table[i][hi];
 			OBNode first;
 			first = iSet.getFirst();
@@ -322,16 +336,19 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		if(((OpenMapThread)Thread.currentThread()).initialCapacity != capacity.get())
 			return false;
 		
+		int initCapacity = ((OpenMapThread)Thread.currentThread()).initialCapacity;
 		//check if any of the individual bucket sizes has gone over threshold
 		BucketListOpen<OBNode>[][] tableLocal = ((OpenMapThread) Thread.currentThread()).tableLocal;
 		for(int i = 0; i < 2; i++){
-			for(int j = 0; j < capacity.get(); j++){
-				if(tableLocal[i][j].size.get() != table[i][j].size.get()){
-					int bucketOps = ((OpenMapThread) Thread.currentThread()).tableOps[i][j];
-					if(tableLocal[i][j].size.get() + bucketOps <= THRESHOLD && table[i][j].size.get() + bucketOps <= THRESHOLD )
-						tableLocal[i][j].size.set(table[i][j].size.get());
-					else
-						return false;
+			for(int j = 0; j < initCapacity; j++){
+				if(tableLocal[i][j] != null){
+					if(tableLocal[i][j].size.get() != table[i][j].size.get()){
+						int bucketOps = ((OpenMapThread) Thread.currentThread()).tableOps[i][j];
+						if(tableLocal[i][j].size.get() + bucketOps <= THRESHOLD && table[i][j].size.get() + bucketOps <= THRESHOLD )
+							tableLocal[i][j].size.set(table[i][j].size.get());
+						else
+							return false;
+					}
 				}
 			}
 		}
@@ -396,6 +413,7 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 
 	@Override
 	public void commit() throws AbortedException {
+		
 		// TODO Auto-generated method stub
 		OpenMapThread t = ((OpenMapThread) Thread.currentThread());
 		
@@ -453,7 +471,9 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		if(!commitValidate(t.list_readset))
 			throw AbortedException.abortedException;
 		
-		read.lock();
+		//read.lock();
+		
+		//System.out.println("Started commit"+ t.getId());
 		
 		// Publish write-set
 		iterator = write_set.iterator();
@@ -486,27 +506,34 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 			}			
 		}
 		
+		
+		
 		//Now that locks are acquired, update bucketSize for each bucket
 		//If any of it goes over probe_size, set resize flag to true
 		int oldSize, localOps;
 		((OpenMapThread) Thread.currentThread()).resize = false;
 		for(int i = 0; i < 2; i++){
-			for(int j = 0; j < capacity.get(); j++){
+			for(int j = 0; j < t.initialCapacity; j++){
 				localOps = ((OpenMapThread) Thread.currentThread()).tableOps[i][j];
 				while(true){
-					oldSize = table[i][j].size.get();
-					if(table[i][j].size.compareAndSet(oldSize, oldSize + localOps)){
-						if(table[i][j].size.get() > PROBE_SIZE)
-							((OpenMapThread) Thread.currentThread()).resize = true;
-						break;
+					if(table[i][j] != null){
+						oldSize = table[i][j].size.get();
+						if(table[i][j].size.compareAndSet(oldSize, oldSize + localOps)){
+							if(table[i][j].size.get() > PROBE_SIZE)
+								((OpenMapThread) Thread.currentThread()).resize = true;
+							break;
+						}
 					}
+					else
+						break;
 				}
 			}
 		}
 		
 		// unlock
 		
-		read.unlock();
+		//read.unlock();
+		
 		iterator = write_set.iterator();
 		while(iterator.hasNext())
 		{
@@ -532,12 +559,15 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		write_set.clear();
 		
 		
+		
 		if(((OpenMapThread) Thread.currentThread()).resize){
 			write.lock();
 			if(capacity.get() == ((OpenMapThread) Thread.currentThread()).initialCapacity)
 				resize();
 			write.unlock();
 		}
+		//System.out.println("Done commit");
+		
 	}
 
 	@Override
@@ -545,6 +575,8 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		// TODO Auto-generated method stub
 		OpenMapThread t = ((OpenMapThread)Thread.currentThread());
 
+		//System.out.println("Aborted:"+t.getId());
+		
 		Iterator<Entry<Integer, WriteSetEntry>> iterator = t.list_writeset.entrySet().iterator();
 		WriteSetEntry entry;
 
@@ -574,7 +606,7 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 	public boolean nonTransactionalPut(Integer item, Object v) {
 		
 		if(addNonTransactional(item, v)){
-			//System.out.println(item + "added");
+			System.out.println(item + "added");
 			return true;
 		}
 		else
@@ -642,7 +674,7 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 			case 1: hj = hash0(first.item) % capacity.get(); break;
 			}
 			
-			BucketListOpen<OBNode> jSet = table[j][hj];
+			BucketListOpen<OBNode> jSet = getBucketList(j,hj);
 			
 			if(iSet.removeNonTrans(first.item, first.key) != null){
 				iSet.size.getAndDecrement();
@@ -680,6 +712,8 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		int oldCapacity = capacity.get();
 		capacity.set(2 * oldCapacity);
 		
+		System.out.println("capacity:"+capacity.get());
+		
 		BucketListOpen<OBNode>[][] oldTable = table;
 		table = new BucketListOpen[2][capacity.get()];
 		table[0][0] = new BucketListOpen<>(0);
@@ -692,12 +726,12 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 					OBNode curr = oldTable[i][j].head.next;
 					while(size > 0){
 						addNonTransactional(curr.item, curr.value);
+						size--;
 					}
 					
 				}
 			}
 		}
-		
 	}
 
 	private BucketListOpen<OBNode> getBucketList(int i, int myBucket){
@@ -737,10 +771,11 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 	@SuppressWarnings("unchecked")
 	private void resize(){
 		int oldSize = capacity.get();
-		capacity.compareAndSet(oldSize, 2 * oldSize);
 		
 		BucketListOpen<OBNode>[][] oldTable = table;
-		table = new BucketListOpen[2][capacity.get()];
+		table = new BucketListOpen[2][2*oldSize];
+	
+		capacity.compareAndSet(oldSize, 2 * oldSize);
 		
 		for(int i = 0; i < 2; i++){
 			for(int j = 0; j < oldSize; j++){
