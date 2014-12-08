@@ -6,17 +6,24 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import mpp.benchmarks.ClosedMapThread;
 import mpp.exception.AbortedException;
 
 public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 
-	private static final int THRESHHOLD = 10;
+	private static final int THRESHOLD = 10;
 	final int PUT = 1;
 	final int GET = 2;
 	final int CONTAINS = 3;
 	final int REMOVE = 4;
+	
+	private final ReadWriteLock lock = new ReentrantReadWriteLock();
+	private final Lock read = lock.readLock();
+	private final Lock write = lock.writeLock();
 	
 	public volatile BucketList<OBNode>[] bucket;
 	public AtomicInteger bucketSize;
@@ -50,37 +57,39 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 		int operation;
 		int key;
 		Object value;
+		int item;
 		
-		public WriteSetEntry(OBNode pred, OBNode curr, int operation, int key,Object value) {
+		public WriteSetEntry(OBNode pred, OBNode curr, int operation, int key, int item, Object value) {
 			this.pred = pred;
 			this.curr = curr;
 			this.operation = operation;
 			this.key = key;
 			this.value = value;
+			this.item = item;
 		}
 	}
 	
 	public boolean put(Integer k,Object v) throws AbortedException{
-		return ((boolean)operation(PUT,new OBNode(k, v)));
+		return ((boolean)operation(PUT,new OBNode(BucketList.makeOrdinaryKey(k), k, v)));
 	}
 	
 	public Object remove(Integer k) throws AbortedException {
-		return operation(REMOVE,new OBNode(k,null) );
+		return operation(REMOVE,new OBNode(BucketList.makeOrdinaryKey(k), k, null) );
 	}
 	
 	public Object get(Integer k) throws AbortedException {
-		return operation(GET,new OBNode(k,null) );
+		return operation(GET,new OBNode(BucketList.makeOrdinaryKey(k), k, null) );
 	}
 	
 	public boolean contains(Integer k) throws AbortedException {
-		return ((boolean)operation(CONTAINS,new OBNode(k,null)));
+		return ((boolean)operation(CONTAINS,new OBNode(BucketList.makeOrdinaryKey(k), k, null)));
 	}
 	
 	private Object operation(int type,OBNode myNode) throws AbortedException{
 		
 		TreeMap<Integer, WriteSetEntry> writeset = ((ClosedMapThread) Thread.currentThread()).list_writeset;
 		
-		WriteSetEntry entry = writeset.get(myNode.key);
+		WriteSetEntry entry = writeset.get(myNode.item);
 		
 		if(entry != null){
 			if(entry.operation == PUT){
@@ -91,7 +100,7 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 					return true;
 				}else{
 					if(type == REMOVE)
-						writeset.remove(myNode.key);
+						writeset.remove(myNode.item);
 					return entry.value;
 				}
 			}else{
@@ -100,7 +109,7 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 				else if(type == REMOVE || type == GET){
 					return null;	// returning a null object
 				}else{
-					writeset.remove(myNode.key);
+					writeset.remove(myNode.item);
 					return true;
 				}
 			}
@@ -110,19 +119,17 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 		
 		// this is where it differs from actual set
 		// will help provide constant time operations
-		int myBucket = new Integer(myNode.key).hashCode() % bucketSize.get();
+				
+		int myBucket = new Integer(myNode.item).hashCode() % ((ClosedMapThread)Thread.currentThread()).initialCapacity;
 		BucketList<OBNode> b = getBucketList(myBucket);						
 		
-		Window window = b.find(b.head, b.makeOrdinaryKey(myNode.key));
+		Window window = b.find(b.head, myNode.key, myNode.item);
 		
 		OBNode pred = window.pred;
 		OBNode curr = window.curr;
 		
 		int currKey = curr.key;
-		
-		boolean[] marked = {false};
-		OBNode succ = curr.next.get(marked);
-		boolean currMarked = marked[0];
+		boolean currMarked = curr.marked;
 		
 		if(!postValidate(readset))
 			throw AbortedException.abortedException;
@@ -138,7 +145,7 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 				readset.add(new ReadSetEntry(pred, curr, true));
 				
 				if(type == REMOVE)
-					writeset.put(myNode.key, new WriteSetEntry(pred, curr, REMOVE, myNode.key,myNode.value));
+					writeset.put(myNode.item, new WriteSetEntry(pred, curr, REMOVE, myNode.key, myNode.item, myNode.value));
 				
 				return curr.value;
 			}
@@ -149,13 +156,17 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 			else if(type == GET || type == REMOVE){
 				return null;
 			}else{
-				writeset.put(myNode.key, new WriteSetEntry(pred, curr, PUT, myNode.key,myNode.value));
+				writeset.put(myNode.item, new WriteSetEntry(pred, curr, PUT, myNode.key, myNode.item, myNode.value));
 				return true;
 			}
 		}
 	}
 	
 	private boolean postValidate(ArrayList<ReadSetEntry> readset) {
+		
+		/*if(((ClosedMapThread) Thread.currentThread()).initialCapacity != bucketSize.get())
+			return false;
+		*/
 		ReadSetEntry entry;	
 		int size = readset.size();
 
@@ -172,23 +183,14 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 		
 		// check the values of the nodes 
 		// and also check that nodes are not currently locked
-		
-		boolean[] marked = {false};
-		
 		for(int i=0; i<size; i++)
 		{
 			entry = readset.get(i);
-			
-			OBNode succ = entry.curr.next.get(marked);
-			
-			if((currLocks[i] & 1) == 1 || marked[0])
+			if((currLocks[i] & 1) == 1 || entry.curr.marked)
 				return false;
-			
-			OBNode p_succ = entry.pred.next.get(marked);
-			
 			if(entry.checkLink)
 			{
-				if((predLocks[i] & 1) == 1 || marked[0] || entry.curr != entry.pred.next.getReference()) 
+				if((predLocks[i] & 1) == 1 || entry.pred.marked || entry.curr != entry.pred.next) 
 					return false;
 			}
 		}
@@ -204,32 +206,26 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 		}
 		return true;
 	}
-	
+
+
 	private boolean commitValidate(ArrayList<ReadSetEntry> readset){
 		
 		ReadSetEntry entry;	
 		int size = readset.size();
 
-		boolean[] marked = {false};
-		
 		// check the values of the nodes 
 		for(int i=0; i<size; i++)
 		{
 			entry = readset.get(i);
-			
-			OBNode succ = entry.curr.next.get(marked);
-			
-			if(marked[0])
+			if(entry.curr.marked)
 				return false;
-			
-			OBNode p_succ = entry.pred.next.get(marked);
-			
-			if(entry.checkLink && (marked[0] || entry.curr != entry.pred.next.getReference()))
+			if(entry.checkLink && (entry.pred.marked || entry.curr != entry.pred.next))
 				return false;
 		}
 		return true;
 		
 	}
+
 
 	@Override
 	public void commit() throws AbortedException {
@@ -286,6 +282,8 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 		
 		if(!commitValidate(t.list_readset))
 			throw AbortedException.abortedException;
+		
+		read.lock();
 
 		// Publish write-set
 		iterator = write_set.iterator();
@@ -294,24 +292,28 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 			entry = iterator.next().getValue();
 			
 			OBNode pred = entry.pred;
-			OBNode curr = entry.pred.next.getReference();
+			OBNode curr = entry.pred.next;
 			while(curr.key < entry.key){
 				pred = curr;
-				curr = curr.next.getReference();
+				curr = curr.next;
 			}
 			
 			if(entry.operation == PUT){
-				newNodeOrVictim = new OBNode(entry.key,entry.value);
+				newNodeOrVictim = new OBNode(entry.key, entry.item, entry.value);
 				newNodeOrVictim.lock.set(1);
 				newNodeOrVictim.lockHolder = threadId;
 				entry.newNode = newNodeOrVictim;
-				newNodeOrVictim.next.set(curr,false);
-				pred.next.set(newNodeOrVictim,false);
+				newNodeOrVictim.next = curr;
+				pred.next = newNodeOrVictim;
+				setSize.getAndIncrement();
 			}else{
-				curr.next.attemptMark(curr.next.getReference(), true);
+				curr.marked = true;
 				pred.next = entry.curr.next;
+				setSize.getAndDecrement();
 			}			
 		}
+		
+		read.unlock();
 		
 		// unlock
 		iterator = write_set.iterator();
@@ -332,6 +334,12 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 				newNodeOrVictim.lockHolder = -1;
 				newNodeOrVictim.lock.incrementAndGet();
 			}
+		}
+		
+		if(setSize.get()/bucketSize.get() > THRESHOLD){
+			write.lock();
+			resize();
+			write.unlock();
 		}
 		
 		// clear read- and write- sets
@@ -375,10 +383,11 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 		
 		BucketList<OBNode> b = getBucketList(myBucket);
 		
-		if(!b.add(new OBNode(k, v)))
+		if(!b.add(new OBNode(BucketList.makeOrdinaryKey(k), k, v)))
 			return false;
 		
-//		resize();
+		if(setSize.get()/bucketSize.get() > THRESHOLD)
+			resize();
 		
 		return true;
 	}
@@ -411,15 +420,22 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 	}
 	
 	private void resize(){
-		int setSizeNow = setSize.getAndIncrement();
+		
 		int bucketSizeNow = bucketSize.get();
+		int bucketSizeNew = 2 * bucketSizeNow;
 		
-		if(setSizeNow / bucketSizeNow > THRESHHOLD)
-			bucketSize.compareAndSet(bucketSizeNow, 2 * bucketSizeNow);
+		BucketList<OBNode>[] bucketOld = bucket;
+		bucket = new BucketList[bucketSizeNew];
 		
+		for(int i = 0; i < bucketSizeNow; i++){
+			bucket[i] = bucketOld[i];
+			bucketOld[i] = null;
+		}	
+		
+		bucketSize.compareAndSet(bucketSizeNow, bucketSizeNew);
 	}
 	
 	public void begin(){
-		
+		((ClosedMapThread)Thread.currentThread()).initialCapacity = bucketSize.get();
 	}
 }
