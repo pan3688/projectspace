@@ -471,7 +471,7 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		if(!commitValidate(t.list_readset))
 			throw AbortedException.abortedException;
 		
-		//read.lock();
+		read.lock();
 		
 		//System.out.println("Started commit"+ t.getId());
 		
@@ -532,7 +532,7 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		
 		// unlock
 		
-		//read.unlock();
+		read.unlock();
 		
 		iterator = write_set.iterator();
 		while(iterator.hasNext())
@@ -750,8 +750,8 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		if(b != null)
 			table[i][myBucket] = b;
 		try{
-			((OpenMapThread)Thread.currentThread()).tableLocal[i][parent].size.set(table[i][parent].size.get());
-			((OpenMapThread)Thread.currentThread()).tableLocal[i][myBucket].size.set(b.size.get());
+			((OpenMapThread)Thread.currentThread()).tableLocal[i][parent] = table[i][parent];
+			((OpenMapThread)Thread.currentThread()).tableLocal[i][myBucket] = b;
 
 		}
 		catch(ClassCastException e){
