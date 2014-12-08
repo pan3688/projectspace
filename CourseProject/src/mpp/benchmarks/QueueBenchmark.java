@@ -4,6 +4,7 @@ import java.util.Random;
 
 import mpp.queue.IntQueue;
 import mpp.queue.OptimisticBoostedQueue;
+import mpp.queue.TransactionalQueue;
 
 public class QueueBenchmark implements Benchmark {
 
@@ -20,8 +21,11 @@ public class QueueBenchmark implements Benchmark {
 		if(args.length > 0){
 			if(args[0].trim().equals("OptimisticBoosted")){
 				m_queue = new OptimisticBoostedQueue();
+			}else if(args[0].trim().equals("Transactional")){
+				m_queue = new TransactionalQueue();
 			}else
 				error = true;
+			
 		}else
 			error = true;
 		

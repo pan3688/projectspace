@@ -14,9 +14,9 @@ public class OptimisticBoostedQueue implements IntQueue {
 	public class OBNode{
 		public int item;
 	//	public volatile boolean marked;
-		public OBNode next;
-		public volatile AtomicInteger lock = new AtomicInteger(0);
-		public volatile long lockholder = -1;
+		public volatile OBNode next;
+//		public volatile AtomicInteger lock = new AtomicInteger(0);
+//		public volatile long lockholder = -1;
 		
 		private OBNode(int item){
 			this.item = item;

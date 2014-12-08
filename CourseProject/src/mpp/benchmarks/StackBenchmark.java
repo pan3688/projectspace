@@ -4,6 +4,7 @@ import java.util.Random;
 
 import mpp.stack.IntStack;
 import mpp.stack.OptimisticBoostedStack;
+import mpp.stack.TransactionalStack;
 
 
 public class StackBenchmark implements Benchmark{
@@ -19,7 +20,9 @@ public class StackBenchmark implements Benchmark{
 		if (args.length > 0) {
 			 if (args[0].equals("OptimisticBoosted"))
 				 m_stack = new OptimisticBoostedStack();
-			else
+			 else if(args[0].equals("Transactional"))
+				 m_stack = new TransactionalStack();
+			 else
 				error = true;
 		} else
 			error = true;
