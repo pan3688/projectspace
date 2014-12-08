@@ -81,7 +81,7 @@ public class OptimisticBoostedClosedMap implements IntMap<Integer,Object> {
 		return operation(GET,new OBNode(BucketList.makeOrdinaryKey(k), k, null) );
 	}
 	
-	public boolean contains(Integer k) throws AbortedException {
+	public boolean containsSet(Integer k) throws AbortedException {
 		return ((boolean)operation(CONTAINS,new OBNode(BucketList.makeOrdinaryKey(k), k, null)));
 	}
 	

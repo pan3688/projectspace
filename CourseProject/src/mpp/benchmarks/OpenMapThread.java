@@ -126,7 +126,7 @@ public class OpenMapThread extends BenchmarkThread {
 								nb_remove++;
 						}
 					} else {
-						m_map.contains(containsItems[c]);
+						m_map.containsSet(containsItems[c]);
 						if (phase == Benchmark.TEST_PHASE)
 							nb_contains++;
 					}

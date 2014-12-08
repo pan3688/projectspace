@@ -96,7 +96,7 @@ public class OptimisticBoostedOpenMap implements IntMap<Integer,Object> {
 		return operation(GET, item, null);
 	}
 	
-	public boolean contains(Integer item) throws AbortedException {
+	public boolean containsSet(Integer item) throws AbortedException {
 		return (boolean)operation(CONTAINS, item, null);
 	}
 	
